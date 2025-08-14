@@ -121,10 +121,76 @@
             if (screens[screenId]) screens[screenId].classList.add('active');
         };
         
-        const login = async () => { /* ... Logica esistente ... */ };
-        const loadInitialData = async () => { /* ... Logica esistente ... */ };
-        const renderLocationButtons = () => { /* ... Logica esistente ... */ };
-        const renderStudentBookingSummary = async () => { /* ... Logica esistente ... */ };
+        const login = async () => {
+            const codeInput = document.getElementById('student-code');
+            const code = codeInput.value.toUpperCase().trim();
+            if (!code) return;
+            showLoading(true);
+            const { data: user, error } = await supabaseClient.from('users').select('*').eq('code', code).single();
+            showLoading(false);
+            if (error && error.code !== 'PGRST116') {
+                console.error('Errore login:', error);
+                alert('Errore di connessione.');
+                return;
+            }
+            if (user) {
+                state.currentUser = user;
+                document.getElementById('welcome-message').textContent = `Ciao, ${user.name}!`;
+                await loadInitialData();
+                if(user.role === 'admin') {
+                    updateAdminUI();
+                } else {
+                    await renderStudentBookingSummary();
+                }
+                navigateTo('main-screen');
+            } else {
+                alert('Codice non valido. Riprova.');
+            }
+        };
+
+        const loadInitialData = async () => {
+            showLoading(true);
+            const { data, error } = await supabaseClient.from('schedule_config').select('location, work_days');
+            showLoading(false);
+            if (error) { console.error("Errore caricamento config calendario:", error); return; }
+            state.scheduleConfig = {};
+            data.forEach(item => { state.scheduleConfig[item.location] = item.work_days || []; });
+            renderLocationButtons();
+        };
+
+        const renderLocationButtons = () => {
+            const container = document.getElementById('location-buttons-container');
+            container.innerHTML = '';
+            const locations = Object.keys(state.scheduleConfig);
+            if (locations.length > 0) {
+                locations.forEach(location => {
+                    const btn = document.createElement('button');
+                    btn.className = 'btn btn-primary';
+                    btn.dataset.location = location;
+                    btn.textContent = location;
+                    container.appendChild(btn);
+                });
+            } else {
+                container.innerHTML = `<p style="text-align:center; color: #666;">Nessuna sede configurata.</p>`;
+            }
+        };
+        
+        const renderStudentBookingSummary = async () => {
+            const summaryDiv = document.getElementById('student-bookings-summary');
+            if (!summaryDiv) return;
+            summaryDiv.innerHTML = '<h4>Le Tue Prossime Lezioni</h4>';
+            const today = new Date().toISOString().split('T')[0];
+            showLoading(true);
+            const { data: bookings, error } = await supabaseClient.from('bookings').select('*').eq('user_code', state.currentUser.code).gte('date', today).order('date').order('start_time');
+            showLoading(false);
+            if (error) { console.error("Errore nel caricare le prenotazioni:", error); summaryDiv.innerHTML += '<p>Impossibile caricare le lezioni.</p>'; return; }
+            if (bookings && bookings.length > 0) {
+                let html = bookings.map(b => `<div style="padding:1rem; border:1px solid #ddd; margin-bottom:0.5rem; border-radius:4px; background-color:#e9ecef; display:flex; justify-content:space-between; align-items:center;"><span><strong>${new Date(b.date).toLocaleDateString('it-IT', {weekday: 'long', day: 'numeric', month: 'long', timeZone: 'UTC'})}</strong><br><small>Ore: ${b.start_time.substring(0,5)} - ${b.end_time.substring(0,5)} (${b.location})</small></span></div>`).join('');
+                summaryDiv.innerHTML += html;
+            } else {
+                summaryDiv.innerHTML += "<p style='text-align:center;'>Nessuna lezione futura prenotata.</p>";
+            }
+        };
         
         const updateAdminUI = () => {
             const adminActionsDiv = document.getElementById('admin-actions');
@@ -134,10 +200,68 @@
             `;
         };
         
-        const renderScheduleSettings = async () => { /* ... Logica esistente ... */ };
-        const saveScheduleSettings = async () => { /* ... Logica esistente ... */ };
-        const addLocation = async () => { /* ... Logica esistente ... */ };
-        const removeLocation = async (locationToRemove) => { /* ... Logica esistente ... */ };
+        const renderScheduleSettings = async () => {
+            const contentDiv = document.getElementById('schedule-settings-content');
+            contentDiv.innerHTML = '';
+            const daysOfWeek = ['Domenica', 'Lunedì', 'Martedì', 'Mercoledì', 'Giovedì', 'Venerdì', 'Sabato'];
+            showLoading(true);
+            const { data, error } = await supabaseClient.from('schedule_config').select('*').order('location');
+            showLoading(false);
+            if(error) { console.error("Errore caricamento impostazioni:", error); return; }
+            data.forEach(locationData => {
+                let locationHtml = `<div style="border: 1px solid #eee; padding: 1rem; border-radius: 8px; margin-bottom: 1rem;"><div style="display: flex; justify-content: space-between; align-items: center;"><h4 style="margin: 0;">${locationData.location}</h4><button class="btn btn-danger btn-sm btn-remove-location" data-location="${locationData.location}">&times; Rimuovi</button></div><div class="days-checkboxes" data-location="${locationData.location}" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(100px, 1fr)); gap: 0.5rem; margin-top:1rem;">`;
+                for (let i = 1; i <= 6; i++) {
+                    const isChecked = (locationData.work_days || []).includes(i);
+                    locationHtml += `<div><input type="checkbox" id="${locationData.location}-${i}" value="${i}" ${isChecked ? 'checked' : ''}><label for="${locationData.location}-${i}" style="margin-left: 0.25rem;">${daysOfWeek[i]}</label></div>`;
+                }
+                locationHtml += `</div></div>`;
+                contentDiv.innerHTML += locationHtml;
+            });
+        };
+
+        const saveScheduleSettings = async () => {
+            const newConfig = [];
+            document.querySelectorAll('.days-checkboxes').forEach(div => {
+                const location = div.dataset.location;
+                const work_days = [];
+                div.querySelectorAll('input[type="checkbox"]:checked').forEach(box => { work_days.push(parseInt(box.value)); });
+                newConfig.push({ location, work_days });
+            });
+            showLoading(true);
+            await supabaseClient.from('schedule_config').delete().neq('id', -1); // Workaround to delete all rows
+            const { error } = await supabaseClient.from('schedule_config').insert(newConfig);
+            showLoading(false);
+            if(error) {
+                console.error("Errore salvataggio impostazioni:", error);
+                alert("Errore nel salvataggio.");
+            } else {
+                alert("Impostazioni salvate con successo.");
+                await loadInitialData();
+                navigateTo('main-screen');
+            }
+        };
+
+        const addLocation = async () => {
+            const input = document.getElementById('new-location-name');
+            const newLocationName = input.value.trim();
+            if (!newLocationName) { alert("Inserisci un nome per la sede."); return; }
+            showLoading(true);
+            const { error } = await supabaseClient.from('schedule_config').insert({ location: newLocationName, work_days: [] });
+            showLoading(false);
+            if(error) { console.error("Errore aggiunta sede:", error); alert("Errore: la sede potrebbe già esistere."); } 
+            else { await renderScheduleSettings(); input.value = ''; }
+        };
+
+        const removeLocation = async (locationToRemove) => {
+            if (confirm(`Sei sicuro di voler rimuovere la sede "${locationToRemove}"?`)) {
+                showLoading(true);
+                const { error } = await supabaseClient.from('schedule_config').delete().eq('location', locationToRemove);
+                showLoading(false);
+                if(error) { console.error("Errore rimozione sede:", error); alert("Errore durante la rimozione."); }
+                else { await renderScheduleSettings(); }
+            }
+        };
+
         const renderStudentList = async () => {
             const listDiv = document.getElementById('student-list');
             listDiv.innerHTML = '';
@@ -181,11 +305,29 @@
                 showUserModal(false);
             }
         };
-        const deleteUser = async (studentCode) => { /* ... Logica esistente ... */ };
-        const logout = () => { /* ... Logica esistente ... */ };
+        const deleteUser = async (studentCode) => {
+            showLoading(true);
+            await supabaseClient.from('bookings').delete().eq('user_code', studentCode);
+            const { error } = await supabaseClient.from('users').delete().eq('code', studentCode);
+            showLoading(false);
+            if (error) {
+                console.error("Errore eliminazione utente:", error);
+                alert("Errore durante l'eliminazione.");
+            } else {
+                alert("Allievo eliminato con successo.");
+                await renderStudentList();
+            }
+        };
 
-        // --- EVENT LISTENERS ---
+        const logout = () => {
+            state = { currentUser: null, currentScreen: 'login-screen', scheduleConfig: {} };
+            document.getElementById('student-code').value = '';
+            navigateTo('login-screen');
+        };
+
+        // --- 4. EVENT LISTENERS ---
         document.getElementById('login-btn').addEventListener('click', login);
+        document.getElementById('student-code').addEventListener('keyup', (e) => { if (e.key === 'Enter') login(); });
         document.getElementById('logout-btn').addEventListener('click', logout);
         
         mainEl.addEventListener('click', async (e) => {
@@ -202,7 +344,12 @@
             }
         });
         
-        document.getElementById('schedule-settings-screen').addEventListener('click', async (e) => { /* ... Logica esistente ... */ });
+        document.getElementById('schedule-settings-screen').addEventListener('click', async (e) => {
+            if (e.target.id === 'add-location-btn') await addLocation();
+            if (e.target.id === 'save-schedule-settings-btn') await saveScheduleSettings();
+            if (e.target.classList.contains('btn-remove-location')) await removeLocation(e.target.dataset.location);
+        });
+
         document.getElementById('student-list-screen').addEventListener('click', async (e) => {
              if(e.target.id === 'create-student-btn') {
                 document.getElementById('user-modal-title').textContent = 'Crea Nuovo Allievo';
@@ -227,21 +374,6 @@
             // Aggiungere logica per 'btn-edit-student'
         });
         document.getElementById('user-modal-cancel').addEventListener('click', () => showUserModal(false));
-
-        // Riempiendo le funzioni omesse con la logica completa...
-        // Copio e incollo il contenuto completo delle funzioni omesse per completezza.
-        login.toString = () => `const login = async () => { const codeInput = document.getElementById('student-code'); const code = codeInput.value.toUpperCase().trim(); if (!code) return; showLoading(true); const { data: user, error } = await supabaseClient.from('users').select('*').eq('code', code).single(); showLoading(false); if (error && error.code !== 'PGRST116') { console.error('Errore login:', error); alert('Errore di connessione.'); return; } if (user) { state.currentUser = user; document.getElementById('welcome-message').textContent = \`Ciao, \${user.name}!\`; await loadInitialData(); if(user.role === 'admin') { updateAdminUI(); } else { await renderStudentBookingSummary(); } navigateTo('main-screen'); } else { alert('Codice non valido. Riprova.'); codeInput.focus(); } };`;
-        loadInitialData.toString = () => `const loadInitialData = async () => { showLoading(true); const { data, error } = await supabaseClient.from('schedule_config').select('location, work_days'); showLoading(false); if (error) { console.error("Errore caricamento config calendario:", error); return; } state.scheduleConfig = {}; data.forEach(item => { state.scheduleConfig[item.location] = item.work_days || []; }); renderLocationButtons(); };`;
-        renderLocationButtons.toString = () => `const renderLocationButtons = () => { const container = document.getElementById('location-buttons-container'); container.innerHTML = ''; const locations = Object.keys(state.scheduleConfig); if (locations.length > 0) { locations.forEach(location => { const btn = document.createElement('button'); btn.className = 'btn btn-primary'; btn.dataset.location = location; btn.textContent = location; container.appendChild(btn); }); } else { container.innerHTML = \`<p style="text-align:center; color: #666;">Nessuna sede configurata.</p>\`; } };`;
-        renderStudentBookingSummary.toString = () => `const renderStudentBookingSummary = async () => { const summaryDiv = document.getElementById('student-bookings-summary'); if (!summaryDiv) return; summaryDiv.innerHTML = '<h4>Le Tue Prossime Lezioni</h4>'; const today = new Date().toISOString().split('T')[0]; showLoading(true); const { data: bookings, error } = await supabaseClient.from('bookings').select('*').eq('user_code', state.currentUser.code).gte('date', today).order('date').order('start_time'); showLoading(false); if (error) { console.error("Errore nel caricare le prenotazioni:", error); summaryDiv.innerHTML += '<p>Impossibile caricare le lezioni.</p>'; return; } if (bookings && bookings.length > 0) { let html = bookings.map(b => \`<div style="padding:1rem; border:1px solid #ddd; margin-bottom:0.5rem; border-radius:4px; background-color:#e9ecef; display:flex; justify-content:space-between; align-items:center;"><span><strong>\${new Date(b.date).toLocaleDateString('it-IT', {weekday: 'long', day: 'numeric', month: 'long', timeZone: 'UTC'})}</strong><br><small>Ore: \${b.start_time.substring(0,5)} - \${b.end_time.substring(0,5)} (\${b.location})</small></span></div>\`).join(''); summaryDiv.innerHTML += html; } else { summaryDiv.innerHTML += "<p style='text-align:center;'>Nessuna lezione futura prenotata.</p>"; } };`;
-        renderScheduleSettings.toString = () => `const renderScheduleSettings = async () => { const contentDiv = document.getElementById('schedule-settings-content'); contentDiv.innerHTML = ''; const daysOfWeek = ['Domenica', 'Lunedì', 'Martedì', 'Mercoledì', 'Giovedì', 'Venerdì', 'Sabato']; showLoading(true); const { data, error } = await supabaseClient.from('schedule_config').select('*'); showLoading(false); if(error) { console.error("Errore caricamento impostazioni:", error); return; } data.forEach(locationData => { let locationHtml = \`<div style="border: 1px solid #eee; padding: 1rem; border-radius: 8px; margin-bottom: 1rem;"><div style="display: flex; justify-content: space-between; align-items: center;"><h4 style="margin: 0;">\${locationData.location}</h4><button class="btn btn-danger btn-sm btn-remove-location" data-location="\${locationData.location}">&times; Rimuovi</button></div><div class="days-checkboxes" data-location="\${locationData.location}" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(100px, 1fr)); gap: 0.5rem; margin-top:1rem;">\`; for (let i = 1; i <= 6; i++) { const isChecked = (locationData.work_days || []).includes(i); locationHtml += \`<div><input type="checkbox" id="\${locationData.location}-\${i}" value="\${i}" \${isChecked ? 'checked' : ''}><label for="\${locationData.location}-\${i}" style="margin-left: 0.25rem;">\${daysOfWeek[i]}</label></div>\`; } locationHtml += \`</div></div>\`; contentDiv.innerHTML += locationHtml; }); };`;
-        saveScheduleSettings.toString = () => `const saveScheduleSettings = async () => { const newConfig = []; document.querySelectorAll('.days-checkboxes').forEach(div => { const location = div.dataset.location; const work_days = []; div.querySelectorAll('input[type="checkbox"]:checked').forEach(box => { work_days.push(parseInt(box.value)); }); newConfig.push({ location, work_days }); }); showLoading(true); await supabaseClient.from('schedule_config').delete().neq('id', 0); const { error } = await supabaseClient.from('schedule_config').insert(newConfig); showLoading(false); if(error) { console.error("Errore salvataggio impostazioni:", error); alert("Errore nel salvataggio."); } else { alert("Impostazioni salvate con successo."); await loadInitialData(); navigateTo('main-screen'); } };`;
-        addLocation.toString = () => `const addLocation = async () => { const input = document.getElementById('new-location-name'); const newLocationName = input.value.trim(); if (!newLocationName) { alert("Inserisci un nome per la sede."); return; } showLoading(true); const { error } = await supabaseClient.from('schedule_config').insert({ location: newLocationName, work_days: [] }); showLoading(false); if(error) { console.error("Errore aggiunta sede:", error); alert("Errore: la sede potrebbe già esistere."); } else { await renderScheduleSettings(); input.value = ''; } };`;
-        removeLocation.toString = () => `const removeLocation = async (locationToRemove) => { if (confirm(\`Sei sicuro di voler rimuovere la sede "\${locationToRemove}"?\`)) { showLoading(true); const { error } = await supabaseClient.from('schedule_config').delete().eq('location', locationToRemove); showLoading(false); if(error) { console.error("Errore rimozione sede:", error); alert("Errore durante la rimozione."); } else { await renderScheduleSettings(); } } };`;
-        deleteUser.toString = () => `const deleteUser = async (studentCode) => { showLoading(true); const { error: bookingError } = await supabaseClient.from('bookings').delete().eq('user_code', studentCode); const { error: userError } = await supabaseClient.from('users').delete().eq('code', studentCode); showLoading(false); if (userError || bookingError) { console.error("Errore eliminazione utente:", userError || bookingError); alert("Errore durante l'eliminazione."); } else { alert("Allievo eliminato con successo."); await renderStudentList(); } };`;
-        logout.toString = () => `const logout = () => { state = { currentUser: null, currentScreen: 'login-screen', scheduleConfig: {} }; document.getElementById('student-code').value = ''; document.getElementById('student-bookings-summary').innerHTML = ''; document.getElementById('admin-actions').innerHTML = ''; navigateTo('login-screen'); };`;
-        document.getElementById('schedule-settings-screen').addEventListener('click', async (e) => { if (e.target.id === 'add-location-btn') await addLocation(); if (e.target.id === 'save-schedule-settings-btn') await saveScheduleSettings(); if (e.target.classList.contains('btn-remove-location')) await removeLocation(e.target.dataset.location); });
-
 	});
 	</script>
 </body>
