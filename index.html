@@ -31,19 +31,6 @@
         .student-list-item { display: flex; justify-content: space-between; align-items: center; padding: 0.75rem; border: 1px solid #ddd; border-radius: 4px; margin-bottom: 0.5rem; }
 		.student-info { font-weight: 500; }
 		.student-actions .btn { width: auto; margin-top: 0; margin-left: 0.5rem; }
-        .calendar { margin-top: 1.5rem; }
-		#calendar-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; }
-		#calendar-weekdays, #calendar-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 5px; text-align: center; }
-		.calendar-day, .weekday { padding: 0.75rem 0.25rem; border-radius: 4px; }
-		.weekday { font-weight: bold; }
-		.calendar-day.invalid { color: #ccc; pointer-events: none; }
-		.calendar-day.valid { background-color: #ffffff; border: 1px solid #ddd; cursor: pointer; }
-		.calendar-day.selected { background-color: var(--button-primary-bg); color: var(--button-primary-text); font-weight: bold; border: 1px solid var(--button-primary-bg); }
-        .admin-time-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(70px, 1fr)); gap: 8px; }
-        .time-slot { padding: 0.5rem; border-radius: 4px; text-align: center; cursor: pointer; font-size: 0.9rem; color: white; border: 1px solid rgba(0, 0, 0, 0.1); }
-        .time-slot.free { background-color: var(--success-color); }
-        .time-slot.booked { background-color: var(--secondary-color); }
-        .time-slot.blocked { background-color: var(--danger-color); }
     </style>
 </head>
 <body>
@@ -65,24 +52,6 @@
                 <div id="location-buttons-container"></div>
                 <div id="admin-actions"></div>
                 <button id="logout-btn" class="btn btn-logout">Esci</button>
-            </div>
-            <div id="booking-screen" class="screen">
-                <h2 id="booking-location-title"></h2>
-                <div id="booking-admin-actions"></div>
-                <div class="calendar">
-                    <div id="calendar-header">
-                        <button id="prev-month-btn" class="btn btn-primary" style="width: auto; padding: 0.5rem 1rem;">&lt;</button>
-                        <h3 id="month-year-label"></h3>
-                        <button id="next-month-btn" class="btn btn-primary" style="width: auto; padding: 0.5rem 1rem;">&gt;</button>
-                    </div>
-                    <div id="calendar-weekdays"><div class="weekday">Lun</div><div class="weekday">Mar</div><div class="weekday">Mer</div><div class="weekday">Gio</div><div class="weekday">Ven</div><div class="weekday">Sab</div><div class="weekday">Dom</div></div>
-                    <div id="calendar-grid"></div>
-                </div>
-                <div id="time-slots-container" style="display:none;">
-                    <h3>Orari per il <span id="selected-date-label"></span></h3>
-                    <div id="slots-content"></div>
-                </div>
-                <button id="back-to-main-btn" class="btn btn-secondary" style="margin-top: 2rem;">Torna Indietro</button>
             </div>
             <div id="schedule-settings-screen" class="screen">
                 <h2>Impostazioni Calendario</h2>
@@ -108,121 +77,218 @@
 		</div>
 	</div>
 
-    <script>
-    document.addEventListener('DOMContentLoaded', () => {
-        const supabaseUrl = 'https://esxpbpxdhqijsomqmrvr.supabase.co';
-        const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVzeHBicHhkaHFpanNvbXFtcnZyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTUxNjExODYsImV4cCI6MjA3MDczNzE4Nn0.5WuPwviEzanny9ky0IgMIgFo4N83t8dQTUZsbp2wEnk';
-        const supabaseClient = supabase.createClient(supabaseUrl, supabaseKey);
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+    // --- 1. CONFIGURAZIONE ---
+    const supabaseUrl = 'https://esxpbpxdhqijsomqmrvr.supabase.co';
+    const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVzeHBicHhkaHFpanNvbXFtcnZyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTUxNjExODYsImV4cCI6MjA3MDczNzE4Nn0.5WuPwviEzanny9ky0IgMIgFo4N83t8dQTUZsbp2wEnk';
+    const supabaseClient = supabase.createClient(supabaseUrl, supabaseKey);
 
-        let state = { currentUser: null, scheduleConfig: {}, currentDate: new Date(), currentLocation: null, selectedDate: null };
-        state.currentDate.setDate(1);
-        const loadingSpinner = document.getElementById('loading-spinner');
-        const showLoading = (show) => { loadingSpinner.style.display = show ? 'block' : 'none'; };
-        
-        const mainEl = document.querySelector('main');
-        const screens = { 
-            'login-screen': document.getElementById('login-screen'), 
-            'main-screen': document.getElementById('main-screen'),
-            'schedule-settings-screen': document.getElementById('schedule-settings-screen'),
-            'student-list-screen': document.getElementById('student-list-screen'),
-            'booking-screen': document.getElementById('booking-screen'),
-        };
-        const navigateTo = (screenId) => {
-            Object.values(screens).forEach(s => s.classList.remove('active'));
-            if (screens[screenId]) screens[screenId].classList.add('active');
-        };
-        
-        const login = async () => {
-            const code = document.getElementById('student-code').value.toUpperCase().trim();
-            if (!code) return;
-            showLoading(true);
-            const { data: user, error } = await supabaseClient.from('users').select('*').eq('code', code).single();
-            showLoading(false);
-            if (error && error.code !== 'PGRST116') { return alert('Errore di connessione.'); }
-            if (user) {
-                state.currentUser = user;
-                document.getElementById('welcome-message').textContent = `Ciao, ${user.name}!`;
-                await loadInitialData();
-                if(user.role === 'admin') { updateAdminUI(); } 
-                else { await renderStudentBookingSummary(); }
-                navigateTo('main-screen');
+    // --- 2. STATO E ELEMENTI DOM ---
+    let state = { currentUser: null, scheduleConfig: {} };
+    const loadingSpinner = document.getElementById('loading-spinner');
+    const mainEl = document.querySelector('main');
+    const screens = { 
+        'login-screen': document.getElementById('login-screen'), 
+        'main-screen': document.getElementById('main-screen'),
+        'schedule-settings-screen': document.getElementById('schedule-settings-screen'),
+        'student-list-screen': document.getElementById('student-list-screen'),
+        // Aggiungi qui altre schermate se necessario
+    };
+
+    // --- 3. FUNZIONI UTILITY ---
+    const showLoading = (show) => { loadingSpinner.style.display = show ? 'block' : 'none'; };
+    const navigateTo = (screenId) => {
+        Object.values(screens).forEach(s => s.classList.remove('active'));
+        if (screens[screenId]) screens[screenId].classList.add('active');
+    };
+
+    // --- 4. FUNZIONI CORE ---
+    const login = async () => {
+        const codeInput = document.getElementById('student-code');
+        const code = codeInput.value.toUpperCase().trim();
+        if (!code) return;
+
+        showLoading(true);
+        const { data: user, error } = await supabaseClient.from('users').select('*').eq('code', code).single();
+        showLoading(false);
+
+        if (error && error.code !== 'PGRST116') {
+            console.error('Errore login:', error);
+            return alert('Errore di connessione.');
+        }
+        if (user) {
+            state.currentUser = user;
+            document.getElementById('welcome-message').textContent = `Ciao, ${user.name}!`;
+            await loadInitialData();
+            if (user.role === 'admin') {
+                updateAdminUI();
             } else {
-                alert('Codice non valido. Riprova.');
+                await renderStudentBookingSummary();
             }
-        };
+            navigateTo('main-screen');
+        } else {
+            alert('Codice non valido. Riprova.');
+        }
+    };
 
-        const loadInitialData = async () => {
-            showLoading(true);
-            const { data, error } = await supabaseClient.from('schedule_config').select('location, work_days');
-            showLoading(false);
-            if (error) { return console.error("Errore caricamento config calendario:", error); }
-            state.scheduleConfig = {};
+    const loadInitialData = async () => {
+        showLoading(true);
+        const { data, error } = await supabaseClient.from('schedule_config').select('location, work_days');
+        showLoading(false);
+        if (error) { return console.error("Errore caricamento config calendario:", error); }
+        
+        state.scheduleConfig = {};
+        if (data) {
             data.forEach(item => { state.scheduleConfig[item.location] = item.work_days || []; });
-            renderLocationButtons();
-        };
+        }
+        renderLocationButtons();
+    };
 
-        const renderLocationButtons = () => {
-            const container = document.getElementById('location-buttons-container');
-            container.innerHTML = '';
-            const locations = Object.keys(state.scheduleConfig);
-            if (locations.length > 0) {
-                locations.forEach(location => {
-                    const btn = document.createElement('button');
-                    btn.className = 'btn btn-primary';
-                    btn.dataset.location = location;
-                    btn.textContent = location;
-                    container.appendChild(btn);
-                });
-            } else {
-                container.innerHTML = `<p style="text-align:center; color: #666;">Nessuna sede configurata.</p>`;
-            }
-        };
-        
-        const updateAdminUI = () => {
-            const adminActionsDiv = document.getElementById('admin-actions');
-            adminActionsDiv.innerHTML = `
-                <button id="manage-students-btn" class="btn btn-primary">Gestione Allievi</button>
-                <button id="manage-schedule-btn" class="btn btn-secondary">Impostazioni Calendario</button>
-            `;
-        };
-        
-        const logout = () => {
-            state = { currentUser: null, currentScreen: 'login-screen', scheduleConfig: {} };
-            document.getElementById('student-code').value = '';
-            navigateTo('login-screen');
-        };
+    const renderLocationButtons = () => {
+        const container = document.getElementById('location-buttons-container');
+        container.innerHTML = '';
+        const locations = Object.keys(state.scheduleConfig);
+        if (locations.length > 0) {
+            locations.forEach(location => {
+                const btn = document.createElement('button');
+                btn.className = 'btn btn-primary';
+                btn.dataset.location = location;
+                btn.textContent = location;
+                container.appendChild(btn);
+            });
+        } else {
+            container.innerHTML = `<p style="text-align:center; color: #666;">Nessuna sede configurata.</p>`;
+        }
+    };
 
-        // --- EVENT LISTENERS ---
-        document.getElementById('login-btn').addEventListener('click', login);
-        document.getElementById('student-code').addEventListener('keyup', (e) => { if (e.key === 'Enter') login(); });
-        document.getElementById('logout-btn').addEventListener('click', logout);
-        
-        document.getElementById('location-buttons-container').addEventListener('click', (e) => {
-            if (e.target.dataset.location) {
-                state.currentLocation = e.target.dataset.location;
-                document.getElementById('booking-location-title').textContent = `Sede di ${state.currentLocation}`;
-                renderCalendar();
-                navigateTo('booking-screen');
-            }
+    const updateAdminUI = () => {
+        const adminActionsDiv = document.getElementById('admin-actions');
+        adminActionsDiv.innerHTML = `
+            <button id="manage-students-btn" class="btn btn-primary">Gestione Allievi</button>
+            <button id="manage-schedule-btn" class="btn btn-secondary">Impostazioni Calendario</button>
+        `;
+    };
+
+    const renderStudentList = async () => {
+        const listDiv = document.getElementById('student-list');
+        listDiv.innerHTML = '';
+        showLoading(true);
+        const { data: users, error } = await supabaseClient.from('users').select('*').eq('role', 'student').order('name');
+        showLoading(false);
+        if (error) { return console.error("Errore caricamento allievi:", error); }
+
+        users.forEach(student => {
+            const itemDiv = document.createElement('div');
+            itemDiv.className = 'student-list-item';
+            itemDiv.innerHTML = `
+                <div class="student-info">
+                    ${student.name}<br><small style="color: #6c757d;">Codice: ${student.code}</small>
+                </div>
+                <div class="student-actions">
+                    <button class="btn btn-secondary btn-sm btn-edit-student" data-id="${student.id}" data-name="${student.name}" data-code="${student.code}">Modifica</button>
+                    <button class="btn btn-danger btn-sm btn-delete-student" data-id="${student.id}" data-name="${student.name}">Elimina</button>
+                </div>`;
+            listDiv.appendChild(itemDiv);
         });
+    };
 
-        mainEl.addEventListener('click', async (e) => {
-            if (e.target.id === 'manage-schedule-btn') {
-                await renderScheduleSettings();
-                navigateTo('schedule-settings-screen');
-            }
-            if (e.target.id === 'manage-students-btn') {
-                await renderStudentList();
-                navigateTo('student-list-screen');
-            }
-            if (e.target.id === 'back-to-main-from-schedule-settings-btn' || e.target.id === 'back-to-main-from-student-list-btn' || e.target.id === 'back-to-main-btn') {
-                navigateTo('main-screen');
-            }
-        });
+    const showUserModal = (isEdit = false, userData = {}) => {
+        document.getElementById('user-modal-title').textContent = isEdit ? 'Modifica Allievo' : 'Crea Nuovo Allievo';
+        document.getElementById('user-modal-name').value = userData.name || '';
+        document.getElementById('user-modal-code').value = userData.code || '';
+        
+        const saveBtn = document.getElementById('user-modal-save');
+        const newSaveBtn = saveBtn.cloneNode(true);
+        saveBtn.parentNode.replaceChild(newSaveBtn, saveBtn);
+        newSaveBtn.onclick = () => handleSaveUser(userData.id);
 
-        // Qui andrebbero le funzioni complete e i listener per tutte le altre schermate
-        // Questa versione garantisce il funzionamento del login e della navigazione principale.
+        document.getElementById('user-modal-overlay').style.display = 'flex';
+    };
+
+    const handleSaveUser = async (userId = null) => {
+        const name = document.getElementById('user-modal-name').value.trim();
+        const code = document.getElementById('user-modal-code').value.toUpperCase().trim();
+        if (!name || !code) { return alert("Nome e Codice Allievo non possono essere vuoti."); }
+
+        showLoading(true);
+        let result;
+        if (userId) { // Modifica
+            result = await supabaseClient.from('users').update({ name, code }).eq('id', userId);
+        } else { // Creazione
+            result = await supabaseClient.from('users').insert({ name, code, role: 'student' });
+        }
+        showLoading(false);
+
+        if (result.error) {
+            console.error("Errore salvataggio utente:", result.error);
+            alert("Errore: il codice potrebbe essere già in uso.");
+        } else {
+            alert(`Allievo "${name}" salvato.`);
+            await renderStudentList();
+            document.getElementById('user-modal-overlay').style.display = 'none';
+        }
+    };
+
+    const deleteUser = async (userId, userName) => {
+        if (!confirm(`Sei sicuro di voler eliminare l'allievo "${userName}" e tutte le sue prenotazioni?`)) return;
+        
+        showLoading(true);
+        // Prima cancella le prenotazioni, poi l'utente
+        await supabaseClient.from('bookings').delete().eq('user_code', (await supabaseClient.from('users').select('code').eq('id', userId).single()).data.code);
+        const { error } = await supabaseClient.from('users').delete().eq('id', userId);
+        showLoading(false);
+
+        if (error) {
+            console.error("Errore eliminazione utente:", error);
+            alert("Errore durante l'eliminazione.");
+        } else {
+            alert("Allievo eliminato con successo.");
+            await renderStudentList();
+        }
+    };
+    
+    const logout = () => {
+        state = { currentUser: null, scheduleConfig: {} };
+        document.getElementById('student-code').value = '';
+        navigateTo('login-screen');
+    };
+
+    // --- 5. EVENT LISTENERS ---
+    document.getElementById('login-btn').addEventListener('click', login);
+    document.getElementById('student-code').addEventListener('keyup', (e) => { if (e.key === 'Enter') login(); });
+    document.getElementById('logout-btn').addEventListener('click', logout);
+    
+    mainEl.addEventListener('click', async (e) => {
+        if (e.target.id === 'manage-students-btn') {
+            await renderStudentList();
+            navigateTo('student-list-screen');
+        }
+        if (e.target.id === 'back-to-main-from-student-list-btn') {
+            navigateTo('main-screen');
+        }
     });
-    </script>
+
+    document.getElementById('student-list-screen').addEventListener('click', (e) => {
+        if(e.target.id === 'create-student-btn') {
+            showUserModal(false);
+        }
+    });
+
+    document.getElementById('student-list').addEventListener('click', (e) => {
+        const target = e.target;
+        if (target.classList.contains('btn-delete-student')) {
+            deleteUser(target.dataset.id, target.dataset.name);
+        }
+        if (target.classList.contains('btn-edit-student')) {
+            showUserModal(true, { id: target.dataset.id, name: target.dataset.name, code: target.dataset.code });
+        }
+    });
+
+    document.getElementById('user-modal-cancel').addEventListener('click', () => {
+        document.getElementById('user-modal-overlay').style.display = 'none';
+    });
+});
+</script>
 </body>
 </html>
