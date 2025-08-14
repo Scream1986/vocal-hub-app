@@ -1,4 +1,4 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="it">
 
 <head>
@@ -16,65 +16,32 @@
 			--danger-color: #dc3545;
 			--light-color: #f8f9fa;
 		}
-
-		body {
-			font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-			margin: 0;
-			background-color: var(--light-color);
-			display: flex;
-			justify-content: center;
-			align-items: center;
-			min-height: 100vh;
-			padding: 1rem 0;
-		}
-
-		.app-container {
-			width: 100%;
-			max-width: 480px;
-			background-color: white;
-			border-radius: 8px;
-			box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
-			overflow: hidden;
-		}
-
-		header {
-			background-color: var(--header-bg);
-			color: white;
-			text-align: center;
-		}
-
-		main {
-			padding: 1.5rem;
-		}
-
+		body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; margin: 0; background-color: var(--light-color); color: var(--body-text); display: flex; justify-content: center; align-items: center; min-height: 100vh; padding: 1rem 0; }
+		.app-container { width: 100%; max-width: 480px; background-color: white; border-radius: 8px; box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1); overflow: hidden; }
+		header { background-color: var(--header-bg); color: white; text-align: center; }
+		main { padding: 1.5rem; }
 		.screen { display: none; }
 		.screen.active { display: block; }
-        h2, h3, h4 { margin-top: 0; text-align: center; }
-        .form-group { margin-bottom: 1rem; }
-        label { display: block; margin-bottom: 0.5rem; font-weight: 500; }
-        input[type="text"] { width: 100%; padding: 0.75rem; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; }
-        .btn { display: block; width: 100%; padding: 0.75rem; border: none; border-radius: 4px; font-size: 1rem; font-weight: bold; cursor: pointer; text-align: center; text-decoration: none; margin-top: 0.5rem; }
-        .btn-primary { background-color: var(--button-primary-bg); color: var(--button-primary-text); }
-        .btn-secondary { background-color: var(--secondary-color); color: white; }
-        .btn-danger { background-color: var(--danger-color); color: white; }
-        .btn-sm { padding: 0.4rem 0.8rem; font-size: 0.8rem; margin-right: 0.5rem; }
-        .btn-logout { background-color: var(--danger-color); color: white; margin-top: 1rem; }
-        #loading-spinner {
-			display: none;
-			position: fixed;
-			top: 50%;
-			left: 50%;
-			transform: translate(-50%, -50%);
-			z-index: 2000;
-			background-color: rgba(255,255,255,0.8);
-			padding: 2rem;
-			border-radius: 8px;
-			box-shadow: 0 5px 15px rgba(0,0,0,0.2);
-			font-weight: bold;
-		}
+		h2, h3, h4 { margin-top: 0; text-align: center; }
+		.form-group { margin-bottom: 1rem; }
+		label { display: block; margin-bottom: 0.5rem; font-weight: 500; }
+		input[type="text"] { width: 100%; padding: 0.75rem; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; }
+		.btn { display: block; width: 100%; padding: 0.75rem; border: none; border-radius: 4px; font-size: 1rem; font-weight: bold; cursor: pointer; text-align: center; text-decoration: none; margin-top: 0.5rem; }
+		.btn-primary { background-color: var(--button-primary-bg); color: var(--button-primary-text); }
+		.btn-secondary { background-color: var(--secondary-color); color: white; }
+		.btn-danger { background-color: var(--danger-color); color: white; }
+		.btn-sm { padding: 0.4rem 0.8rem; font-size: 0.8rem; margin-right: 0.5rem; }
+		.btn-logout { background-color: var(--danger-color); color: white; margin-top: 1rem; }
+        #loading-spinner { display: none; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: 2000; background-color: rgba(255,255,255,0.8); padding: 2rem; border-radius: 8px; box-shadow: 0 5px 15px rgba(0,0,0,0.2); font-weight: bold; }
+        .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0, 0, 0, 0.6); display: none; justify-content: center; align-items: center; z-index: 1000; }
+        .modal-content { background-color: white; padding: 1.5rem; border-radius: 8px; width: 90%; max-width: 400px; box-shadow: 0 5px 20px rgba(0, 0, 0, 0.2); }
+        .modal-buttons { display: flex; justify-content: flex-end; gap: 0.5rem; margin-top: 1.5rem; }
+        .modal-buttons .btn { width: auto; margin-top: 0; }
+        .student-list-item { display: flex; justify-content: space-between; align-items: center; padding: 0.75rem; border: 1px solid #ddd; border-radius: 4px; margin-bottom: 0.5rem; }
+		.student-info { font-weight: 500; }
+		.student-actions .btn { width: auto; margin-top: 0; margin-left: 0.5rem; }
 	</style>
 </head>
-
 <body>
     <div id="loading-spinner">Caricamento...</div>
 	<div class="app-container">
@@ -98,7 +65,30 @@
 					<div id="admin-actions"></div>
 					<button id="logout-btn" class="btn btn-logout">Esci</button>
 				</div>
-                </main>
+				<div id="student-list-screen" class="screen">
+					<h2>Gestione Allievi</h2>
+					<button id="create-student-btn" class="btn btn-primary" style="margin-bottom: 1rem;">+ Crea Nuovo Allievo</button>
+					<div id="student-list"></div>
+					<button id="back-to-main-from-student-list-btn" class="btn btn-primary" style="margin-top: 1rem;">Torna Indietro</button>
+				</div>
+			</main>
+	</div>
+    <div id="user-modal-overlay" class="modal-overlay">
+		<div class="modal-content">
+			<h4 id="user-modal-title">Crea Nuovo Allievo</h4>
+			<div class="form-group">
+				<label for="user-modal-name">Nome Allievo</label>
+				<input type="text" id="user-modal-name" placeholder="Es. Mario Rossi">
+			</div>
+			<div class="form-group">
+				<label for="user-modal-code">Codice Allievo (Password)</label>
+				<input type="text" id="user-modal-code" placeholder="Es. MARIO01" autocomplete="off">
+			</div>
+			<div class="modal-buttons">
+				<button id="user-modal-cancel" class="btn btn-secondary">Annulla</button>
+				<button id="user-modal-save" class="btn btn-primary">Salva</button>
+			</div>
+		</div>
 	</div>
 
 	<script>
@@ -107,25 +97,22 @@
         // --- 1. CONFIGURAZIONE ---
 		const supabaseUrl = 'https://esxpbpxdhqijsomqmrvr.supabase.co';
 		const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVzeHBicHhkaHFpanNvbXFtcnZyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTUxNjExODYsImV4cCI6MjA3MDczNzE4Nn0.5WuPwviEzanny9ky0IgMIgFo4N83t8dQTUZsbp2wEnk';
-		const supabase = supabase.createClient(supabaseUrl, supabaseKey);
-		
-		console.log('Supabase Inizializzato');
+		const supabaseClient = supabase.createClient(supabaseUrl, supabaseKey);
+		console.log('Supabase Inizializzato Correttamente');
 
-        // --- 2. STATO DELL'APPLICAZIONE E UTILITY ---
-        const state = { 
-            currentUser: null, 
-            currentScreen: 'login-screen', 
-            // ... altri stati UI
-        };
+        // --- 2. STATO E UTILITY ---
+        let state = { currentUser: null, currentScreen: 'login-screen', scheduleConfig: {} };
         const loadingSpinner = document.getElementById('loading-spinner');
 		const showLoading = (show) => { loadingSpinner.style.display = show ? 'block' : 'none'; };
         
+        const mainEl = document.querySelector('main');
         const screens = { 
             'login-screen': document.getElementById('login-screen'), 
             'main-screen': document.getElementById('main-screen'),
-            // Aggiungi qui gli ID delle altre schermate se le inserisci nell'HTML
+            'student-list-screen': document.getElementById('student-list-screen'),
         };
         const navigateTo = (screenId) => {
+            state.currentScreen = screenId;
             Object.values(screens).forEach(screen => screen.classList.remove('active'));
             if (screens[screenId]) {
                 screens[screenId].classList.add('active');
@@ -133,41 +120,33 @@
                 console.error(`Schermata non trovata: ${screenId}`);
             }
         };
+        
+        // --- 3. FUNZIONI CORE CON SUPABASE ---
 
-        // --- 3. FUNZIONI DI INTERAZIONE CON SUPABASE ---
-
-        // Funzione di Login
         const login = async () => {
             const codeInput = document.getElementById('student-code');
             const code = codeInput.value.toUpperCase().trim();
             if (!code) return;
 
             showLoading(true);
-            const { data: user, error } = await supabase
-                .from('users')
-                .select('*')
-                .eq('code', code)
-                .single();
+            const { data: user, error } = await supabaseClient.from('users').select('*').eq('code', code).single();
             showLoading(false);
 
             if (error && error.code !== 'PGRST116') {
-                console.error('Errore durante il login:', error);
-                alert('Si è verificato un errore di connessione.');
+                console.error('Errore login:', error);
+                alert('Errore di connessione.');
                 return;
             }
 
             if (user) {
                 state.currentUser = user;
                 document.getElementById('welcome-message').textContent = `Ciao, ${user.name}!`;
-                
-                // Popola dinamicamente i dati della dashboard
-                await renderLocationButtons();
+                await loadInitialData();
                 if(user.role === 'admin') {
-                    // await updateAdminUI(); // Da implementare
+                    updateAdminUI();
                 } else {
                     await renderStudentBookingSummary();
                 }
-
                 navigateTo('main-screen');
             } else {
                 alert('Codice non valido. Riprova.');
@@ -175,29 +154,29 @@
             }
         };
 
-        // Funzione per mostrare le sedi
+        const loadInitialData = async () => {
+            showLoading(true);
+            const { data, error } = await supabaseClient.from('schedule_config').select('location, work_days');
+            showLoading(false);
+
+            if (error) { console.error("Errore caricamento configurazione calendario:", error); return; }
+            
+            state.scheduleConfig = {};
+            data.forEach(item => { state.scheduleConfig[item.location] = item.work_days; });
+            
+            await renderLocationButtons();
+        };
+
         const renderLocationButtons = async () => {
             const container = document.getElementById('location-buttons-container');
             container.innerHTML = '';
-            
-            showLoading(true);
-            const { data: locations, error } = await supabase
-                .from('schedule_config')
-                .select('location');
-            showLoading(false);
-
-            if(error) {
-                console.error("Errore nel caricare le sedi:", error);
-                container.innerHTML = "<p>Errore nel caricamento delle sedi.</p>";
-                return;
-            }
-
-            if (locations && locations.length > 0) {
-                locations.forEach(loc => {
+            const locations = Object.keys(state.scheduleConfig);
+            if (locations.length > 0) {
+                locations.forEach(location => {
                     const btn = document.createElement('button');
-                    btn.className = 'btn btn-primary location-btn';
-                    btn.dataset.location = loc.location;
-                    btn.textContent = loc.location;
+                    btn.className = 'btn btn-primary';
+                    btn.dataset.location = location;
+                    btn.textContent = location;
                     container.appendChild(btn);
                 });
             } else {
@@ -205,49 +184,110 @@
             }
         };
         
-        // Funzione per mostrare le prenotazioni future dello studente
         const renderStudentBookingSummary = async () => {
             const summaryDiv = document.getElementById('student-bookings-summary');
-            if (!summaryDiv) return;
-
-            summaryDiv.innerHTML = '<h4>Le Tue Prossime Lezioni</h4>';
+            summaryDiv.innerHTML = '';
             const today = new Date().toISOString().split('T')[0];
 
             showLoading(true);
-            const { data: bookings, error } = await supabase
-                .from('bookings')
-                .select('*')
-                .eq('user_code', state.currentUser.code)
-                .gte('date', today)
-                .order('date', { ascending: true })
-                .order('start_time', { ascending: true });
+            const { data: bookings, error } = await supabaseClient.from('bookings').select('*').eq('user_code', state.currentUser.code).gte('date', today).order('date').order('start_time');
             showLoading(false);
 
-            if (error) {
-                console.error("Errore nel caricare le prenotazioni:", error);
-                summaryDiv.innerHTML += '<p>Impossibile caricare le lezioni.</p>';
-                return;
-            }
+            if (error) { console.error("Errore caricamento prenotazioni:", error); summaryDiv.innerHTML = '<p>Impossibile caricare le lezioni.</p>'; return; }
 
-            if (bookings && bookings.length > 0) {
-                let html = bookings.map(b => 
-                    `<div style="padding:1rem; border:1px solid #ddd; margin-bottom:0.5rem; border-radius:4px; background-color:#e9ecef; display:flex; justify-content:space-between; align-items:center;">
+            let html = '<h4>Le Tue Prossime Lezioni</h4>';
+            if (bookings.length > 0) {
+                html += bookings.map(b => 
+                    `<div style="padding:1rem; border:1px solid #ddd; margin-bottom:0.5rem; border-radius:4px; background-color:#e9ecef;">
                         <span>
                             <strong>${new Date(b.date).toLocaleDateString('it-IT', {weekday: 'long', day: 'numeric', month: 'long', timeZone: 'UTC'})}</strong><br>
                             <small>Ore: ${b.start_time.substring(0,5)} - ${b.end_time.substring(0,5)} (${b.location})</small>
                         </span>
                     </div>`
                 ).join('');
-                summaryDiv.innerHTML += html;
             } else {
-                summaryDiv.innerHTML += "<p style='text-align:center;'>Nessuna lezione futura prenotata.</p>";
+                html += "<p style='text-align:center;'>Nessuna lezione futura prenotata.</p>";
             }
+            summaryDiv.innerHTML = html;
         };
         
-        // Funzione di Logout
+        const updateAdminUI = () => {
+            const adminActionsDiv = document.getElementById('admin-actions');
+            adminActionsDiv.innerHTML = `
+                <button id="manage-students-btn" class="btn btn-primary">Gestione Allievi</button>
+                `;
+        };
+
+        const renderStudentList = async () => {
+            const listDiv = document.getElementById('student-list');
+            listDiv.innerHTML = '';
+            showLoading(true);
+            const { data: users, error } = await supabaseClient.from('users').select('*').eq('role', 'student').order('name');
+            showLoading(false);
+
+            if (error) { console.error("Errore caricamento allievi:", error); return; }
+
+            users.forEach(student => {
+                const itemDiv = document.createElement('div');
+                itemDiv.className = 'student-list-item';
+                itemDiv.innerHTML = `
+                    <div class="student-info">
+                        ${student.name}<br><small style="color: #6c757d;">Codice: ${student.code}</small>
+                    </div>
+                    <div class="student-actions">
+                        <button class="btn btn-secondary btn-sm btn-edit-student" data-student-code="${student.code}">Modifica</button>
+                        <button class="btn btn-danger btn-sm btn-delete-student" data-student-code="${student.code}">Elimina</button>
+                    </div>`;
+                listDiv.appendChild(itemDiv);
+            });
+        };
+
+        const showUserModal = (show) => { document.getElementById('user-modal-overlay').style.display = show ? 'flex' : 'none'; };
+        
+        const handleSaveUser = async (originalCode = null) => {
+            const name = document.getElementById('user-modal-name').value.trim();
+            const code = document.getElementById('user-modal-code').value.toUpperCase().trim();
+            if (!name || !code) { alert("Nome e Codice Allievo non possono essere vuoti."); return; }
+
+            showLoading(true);
+            let result;
+            if (originalCode) {
+                result = await supabaseClient.from('users').update({ name, code }).eq('code', originalCode);
+            } else {
+                result = await supabaseClient.from('users').insert({ name, code, role: 'student' });
+            }
+            showLoading(false);
+
+            if (result.error) {
+                console.error("Errore salvataggio utente:", result.error);
+                alert("Errore: il codice potrebbe essere già in uso.");
+            } else {
+                alert(`Allievo "${name}" salvato.`);
+                await renderStudentList();
+                showUserModal(false);
+            }
+        };
+
+        const deleteUser = async (studentCode) => {
+            showLoading(true);
+            const { error: bookingError } = await supabaseClient.from('bookings').delete().eq('user_code', studentCode);
+            const { error: userError } = await supabaseClient.from('users').delete().eq('code', studentCode);
+            showLoading(false);
+
+            if (userError || bookingError) {
+                console.error("Errore eliminazione utente:", userError || bookingError);
+                alert("Errore durante l'eliminazione.");
+            } else {
+                alert("Allievo eliminato con successo.");
+                await renderStudentList();
+            }
+        };
+
         const logout = () => {
-            state.currentUser = null;
+            state = { currentUser: null, currentScreen: 'login-screen', scheduleConfig: {} };
             document.getElementById('student-code').value = '';
+            document.getElementById('student-bookings-summary').innerHTML = '';
+            document.getElementById('admin-actions').innerHTML = '';
             navigateTo('login-screen');
         };
 
@@ -256,9 +296,42 @@
         document.getElementById('student-code').addEventListener('keyup', (e) => { if (e.key === 'Enter') login(); });
         document.getElementById('logout-btn').addEventListener('click', logout);
         
-        // Questo è lo scheletro funzionante. Da qui si possono aggiungere le altre schermate
-        // e collegare le funzioni JS (es. cliccando su una sede, si apre la schermata di prenotazione
-        // che a sua volta leggerà e scriverà sulla tabella `bookings` e `blocked_slots`).
+        mainEl.addEventListener('click', async (e) => {
+            if (e.target.id === 'manage-students-btn') {
+                await renderStudentList();
+                navigateTo('student-list-screen');
+            }
+            if (e.target.id === 'back-to-main-from-student-list-btn') {
+                navigateTo('main-screen');
+            }
+            if(e.target.id === 'create-student-btn') {
+                document.getElementById('user-modal-title').textContent = 'Crea Nuovo Allievo';
+                document.getElementById('user-modal-name').value = '';
+                document.getElementById('user-modal-code').value = '';
+                
+                const saveBtn = document.getElementById('user-modal-save');
+                const newSaveBtn = saveBtn.cloneNode(true); // Per pulire vecchi listener
+                saveBtn.parentNode.replaceChild(newSaveBtn, saveBtn);
+                newSaveBtn.onclick = () => handleSaveUser();
+
+                showUserModal(true);
+            }
+        });
+
+        document.getElementById('student-list').addEventListener('click', async (e) => {
+            const target = e.target;
+            const studentCode = target.dataset.studentCode;
+
+            if (target.classList.contains('btn-delete-student')) {
+                const { data: user } = await supabaseClient.from('users').select('name').eq('code', studentCode).single();
+                if (confirm(`Sei sicuro di voler eliminare l'allievo "${user.name}" e tutte le sue prenotazioni?`)) {
+                    await deleteUser(studentCode);
+                }
+            }
+            // Aggiungere logica per 'btn-edit-student'
+        });
+
+        document.getElementById('user-modal-cancel').addEventListener('click', () => showUserModal(false));
 
 	});
 	</script>
