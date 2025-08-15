@@ -70,12 +70,14 @@
             <img src="https://esxpbpxdhqijsomqmrvr.supabase.co/storage/v1/object/public/sito/logo.jpg" alt="Vocal Hub Logo" style="height: 60px; width: auto; display: block; margin: 0 auto;">
         </header>
         <main>
+            <!-- Screen di Login -->
             <div id="login-screen" class="screen active">
                 <h2>Accesso</h2>
                 <div class="form-group"><label for="student-code">Codice Allievo</label><input type="text" id="student-code" placeholder="Inserisci il tuo codice" autocomplete="off"></div>
                 <button id="login-btn" class="btn btn-primary">Accedi</button>
             </div>
 
+            <!-- Schermata Principale -->
             <div id="main-screen" class="screen">
                 <h2 id="welcome-message"></h2>
                 <div id="student-bookings-summary"></div>
@@ -86,6 +88,7 @@
                 <button id="logout-btn" class="btn btn-logout">Esci</button>
             </div>
 
+            <!-- Schermata Prenotazione (Calendario) -->
             <div id="booking-screen" class="screen">
                 <h2 id="booking-location-title"></h2>
                 <div id="booking-admin-actions"></div>
@@ -105,6 +108,7 @@
                 <button id="back-to-main-btn" class="btn btn-secondary" style="margin-top: 2rem;">Torna Indietro</button>
             </div>
 
+            <!-- Schermata Impostazioni Calendario (Admin) -->
             <div id="schedule-settings-screen" class="screen">
                 <h2>Impostazioni Calendario</h2>
                 <div id="schedule-settings-content"></div><hr>
@@ -113,6 +117,7 @@
                 <button id="back-to-main-from-schedule-settings-btn" class="btn btn-secondary">Torna Indietro</button>
             </div>
 
+            <!-- Schermata Gestione Allievi (Admin) -->
             <div id="student-list-screen" class="screen">
                 <h2>Gestione Allievi</h2>
                 <button id="create-student-btn" class="btn btn-primary" style="margin-bottom: 1rem;">+ Crea Nuovo Allievo</button>
@@ -120,12 +125,14 @@
                 <button id="back-to-main-from-student-list-btn" class="btn btn-secondary" style="margin-top: 1rem;">Torna Indietro</button>
             </div>
             
+            <!-- Schermata Notifiche (Admin) -->
             <div id="notifications-screen" class="screen">
                 <h2>Notifiche Studenti</h2>
                 <div id="notifications-list"></div>
                 <button id="back-to-main-from-notifications-btn" class="btn btn-secondary">Torna Indietro</button>
             </div>
 
+            <!-- Schermata Orario Settimanale (Admin) -->
             <div id="schedule-screen" class="screen">
                 <h2>Orari della Settimana</h2>
                 <div id="schedule-header">
@@ -139,6 +146,7 @@
         </main>
     </div>
 
+    <!-- Modale per Creazione/Modifica Utente -->
     <div id="user-modal-overlay" class="modal-overlay">
 		<div class="modal-content">
 			<h4 id="user-modal-title">Crea Nuovo Allievo</h4>
@@ -169,7 +177,13 @@
         // --- 3. FUNZIONI UTILITY ---
         const showLoading = (show) => { document.getElementById('loading-spinner').style.display = show ? 'block' : 'none'; };
         const navigateTo = (screenId) => { Object.values(screens).forEach(s => s.classList.remove('active')); if (screens[screenId]) screens[screenId].classList.add('active'); };
-        const formatDate = (date) => date.toISOString().split('T')[0];
+        const formatDate = (date) => {
+            const d = new Date(date);
+            const year = d.getFullYear();
+            const month = ('0' + (d.getMonth() + 1)).slice(-2);
+            const day = ('0' + d.getDate()).slice(-2);
+            return `${year}-${month}-${day}`;
+        };
         const formatTime = (timeStr) => timeStr.substring(0, 5);
         const addMinutes = (time, mins) => { const [h, m] = time.split(':'); const date = new Date(0,0,0,h,m); date.setMinutes(date.getMinutes() + mins); return date.toTimeString().substring(0,5); };
 
@@ -276,17 +290,36 @@
             calendarGrid.innerHTML = '';
             document.getElementById('month-year-label').textContent = state.currentDate.toLocaleString('it-IT', { month: 'long', year: 'numeric' });
             state.selectedDate = null;
-            const year = state.currentDate.getFullYear(); const month = state.currentDate.getMonth();
-            const firstDay = new Date(year, month, 1); const lastDay = new Date(year, month + 1, 0);
-            let dayOfWeek = firstDay.getDay(); dayOfWeek = dayOfWeek === 0 ? 6 : dayOfWeek - 1; 
-            for (let i = 0; i < dayOfWeek; i++) { calendarGrid.insertAdjacentHTML('beforeend', '<div></div>'); }
-            for (let day = 1; day <= lastDay.getDate(); day++) {
+            
+            const year = state.currentDate.getFullYear();
+            const month = state.currentDate.getMonth();
+            const firstDayOfMonth = new Date(year, month, 1);
+            const lastDayOfMonth = new Date(year, month + 1, 0);
+            
+            let dayOfWeek = firstDayOfMonth.getDay();
+            dayOfWeek = dayOfWeek === 0 ? 6 : dayOfWeek - 1; 
+            
+            for (let i = 0; i < dayOfWeek; i++) {
+                calendarGrid.insertAdjacentHTML('beforeend', '<div></div>');
+            }
+
+            const today = new Date();
+            today.setHours(0, 0, 0, 0); // Azzera l'orario per confrontare solo la data
+
+            for (let day = 1; day <= lastDayOfMonth.getDate(); day++) {
                 const date = new Date(year, month, day);
+                date.setHours(0, 0, 0, 0); // Assicura che anche la data del calendario sia a mezzanotte
+                
                 const dayEl = document.createElement('div');
-                dayEl.textContent = day; dayEl.classList.add('calendar-day');
-                const isAvailable = state.scheduleConfig[state.currentLocation]?.includes(date.getDay());
-                if (isAvailable && date >= new Date(new Date().toDateString())) {
-                    dayEl.classList.add('valid'); dayEl.dataset.date = formatDate(date);
+                dayEl.textContent = day;
+                dayEl.classList.add('calendar-day');
+                
+                const isAvailableDay = state.scheduleConfig[state.currentLocation]?.includes(date.getDay());
+
+                // Confronta direttamente gli oggetti Date, è più sicuro
+                if (isAvailableDay && date >= today) {
+                    dayEl.classList.add('valid');
+                    dayEl.dataset.date = formatDate(date); // Usa la funzione di formattazione sicura
                 } else {
                     dayEl.classList.add('invalid');
                 }
@@ -299,7 +332,7 @@
             document.querySelectorAll('.calendar-day.selected').forEach(d => d.classList.remove('selected'));
             document.querySelector(`.calendar-day[data-date="${dateStr}"]`)?.classList.add('selected');
 
-            const date = new Date(dateStr + 'T00:00:00');
+            const date = new Date(dateStr + 'T12:00:00'); // Usa mezzogiorno per evitare problemi di fuso orario con toLocaleDateString
             document.getElementById('selected-date-label').textContent = date.toLocaleDateString('it-IT', { weekday: 'long', day: 'numeric', month: 'long' });
             document.getElementById('time-slots-container').style.display = 'block';
             const slotsContent = document.getElementById('slots-content');
