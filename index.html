@@ -52,6 +52,8 @@
         .btn-request-change:disabled { background-color: #e9ecef; color: #6c757d; cursor: not-allowed; border: 1px solid #ddd; }
         .notification-item { padding: 1rem; border: 1px solid #ddd; border-radius: 4px; margin-bottom: 1rem; background-color: #f8f9fa; }
         .notification-details { font-size: 0.9rem; color: #6c757d; border-left: 3px solid var(--button-primary-bg); padding-left: 0.75rem; margin-top: 0.75rem; margin-bottom: 1rem; }
+        #booking-admin-actions .day-week-controls { display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; margin-bottom: 1rem; }
+        #booking-admin-actions .day-week-controls .btn { margin-top: 0; font-size: 0.8rem; padding: 0.5rem; }
     </style>
 </head>
 <body>
@@ -212,8 +214,7 @@
 
         const updateAdminUI = async () => {
             const adminActionsDiv = document.getElementById('admin-actions');
-            const { data, error, count } = await supabase.from('notifications').select('*', { count: 'exact' }).eq('status', 'pending');
-
+            const { count } = await supabase.from('notifications').select('*', { count: 'exact', head: true }).eq('status', 'pending');
             adminActionsDiv.innerHTML = `
                 <button id="manage-students-btn" class="btn btn-primary">Gestione Allievi</button>
                 <button id="manage-schedule-btn" class="btn btn-secondary">Impostazioni Calendario</button>
@@ -268,23 +269,15 @@
         };
 
         const checkStudentReplies = async () => {
-            const { data, error } = await supabase.from('notifications')
-                .select('*')
-                .eq('student_code', state.currentUser.code)
-                .eq('status', 'replied');
-
-            if (error || data.length === 0) return;
-
+            const { data, error } = await supabase.from('notifications').select('*').eq('student_code', state.currentUser.code).eq('status', 'replied');
+            if (error || !data || data.length === 0) return;
             let alertMessage = "L'amministratore ha risposto alle tue richieste:\n\n";
-            const idsToArchive = [];
-            data.forEach(reply => {
+            const idsToArchive = data.map(reply => {
                 alertMessage += `--- Richiesta del ${new Date(reply.created_at).toLocaleDateString('it-IT')} ---\n`;
-                alertMessage += `Messaggio: "${reply.reply_message}"\n\n`;
-                idsToArchive.push(reply.id);
+                alertMessage += `Risposta: "${reply.reply_message}"\n\n`;
+                return reply.id;
             });
             alert(alertMessage);
-
-            // Archive notifications
             await supabase.from('notifications').update({ status: 'archived' }).in('id', idsToArchive);
         };
         
@@ -299,6 +292,7 @@
             calendarGrid.innerHTML = '';
             document.getElementById('month-year-label').textContent = state.currentDate.toLocaleString('it-IT', { month: 'long', year: 'numeric' });
             document.getElementById('time-slots-container').style.display = 'none';
+            document.getElementById('booking-admin-actions').innerHTML = '';
             state.selectedDate = null;
             const year = state.currentDate.getFullYear();
             const month = state.currentDate.getMonth();
@@ -330,8 +324,16 @@
             document.getElementById('time-slots-container').style.display = 'block';
 
             if (state.currentUser.role === 'admin') {
+                document.getElementById('booking-admin-actions').innerHTML = `
+                    <div class="day-week-controls">
+                        <button id="block-day-btn" class="btn btn-danger">Blocca Giorno</button>
+                        <button id="unblock-day-btn" class="btn btn-success">Sblocca Giorno</button>
+                        <button id="block-week-btn" class="btn btn-danger">Blocca Settimana</button>
+                        <button id="unblock-week-btn" class="btn btn-success">Sblocca Settimana</button>
+                    </div>`;
                 await renderAdminTimeGrid(dateStr, state.currentLocation);
             } else {
+                document.getElementById('booking-admin-actions').innerHTML = '';
                 await renderStudentTimeSlots(dateStr, state.currentLocation);
             }
         };
@@ -340,16 +342,14 @@
             const slotsContent = document.getElementById('slots-content');
             slotsContent.innerHTML = 'Caricamento...';
             showLoading(true);
-            const { data: bookings, error: bookingsError } = await supabase.from('bookings').select('*, users(name)').eq('date', dateStr).eq('location', location);
+            const { data: bookings, error: bookingsError } = await supabase.from('bookings').select('*, users(name, code)').eq('date', dateStr).eq('location', location);
             const { data: blocked, error: blockedError } = await supabase.from('blocked_slots').select('*').eq('date', dateStr).eq('location', location);
             showLoading(false);
 
             if (bookingsError || blockedError) return console.error(bookingsError || blockedError);
 
             const generateTimeSlots = (start, end, interval) => Array.from({length: (end - start) * (60 / interval)}, (_, i) => {
-                const date = new Date(0);
-                date.setUTCHours(start, i * interval, 0, 0);
-                return date.toISOString().substring(11, 16);
+                const d = new Date(0); d.setUTCHours(start, i * interval); return d.toISOString().substring(11, 16);
             });
             const allSlots = generateTimeSlots(15, 21, 15);
             
@@ -364,7 +364,7 @@
                     status = 'blocked';
                     tooltip = 'Bloccato';
                 }
-                return `<div class="time-slot ${status}" data-time="${slot}" title="${tooltip}">${slot}</div>`;
+                return `<div class="time-slot ${status}" data-time="${slot}" title="${tooltip}" data-booking='${booking ? JSON.stringify(booking) : null}'>${slot}</div>`;
             }).join('');
             gridHtml += '</div>';
             slotsContent.innerHTML = gridHtml;
@@ -374,12 +374,11 @@
             const slotsContent = document.getElementById('slots-content');
             slotsContent.innerHTML = 'Caricamento...';
             showLoading(true);
-            const { data: bookings, error: bErr } = await supabase.from('bookings').select('*').eq('date', dateStr).eq('location', location);
-            const { data: blocked, error: blErr } = await supabase.from('blocked_slots').select('*').eq('date', dateStr).eq('location', location);
+            const { data: bookings, error: bErr } = await supabase.from('bookings').select('id, start_time, end_time').eq('date', dateStr).eq('location', location);
+            const { data: blocked, error: blErr } = await supabase.from('blocked_slots').select('id, start_time, end_time').eq('date', dateStr).eq('location', location);
             showLoading(false);
 
             if (bErr || blErr) return console.error(bErr || blErr);
-            
             const allEvents = [...bookings, ...blocked].sort((a,b) => a.start_time.localeCompare(b.start_time));
 
             const isTimespanFree = (checkStart, checkEnd) => !allEvents.some(event => {
@@ -428,8 +427,7 @@
         // --- 6. FUNZIONI ADMIN ---
         const renderStudentList = async () => {
             const listDiv = document.getElementById('student-list');
-            listDiv.innerHTML = '';
-            showLoading(true);
+            listDiv.innerHTML = ''; showLoading(true);
             const { data: users, error } = await supabase.from('users').select('*').eq('role', 'student').order('name');
             showLoading(false);
             if (error) return console.error("Errore caricamento allievi:", error);
@@ -439,7 +437,7 @@
                         <div class="student-info">${student.name}<br><small style="color: #6c757d;">Codice: ${student.code}</small></div>
                         <div class="student-actions">
                             <button class="btn btn-secondary btn-sm btn-edit-student" data-id="${student.id}" data-name="${student.name}" data-code="${student.code}">Modifica</button>
-                            <button class="btn btn-danger btn-sm btn-delete-student" data-id="${student.id}" data-name="${student.name}" data-code="${student.code}">Elimina</button>
+                            <button class="btn btn-danger btn-sm btn-delete-student" data-id="${student.id}" data-name="${student.name}">Elimina</button>
                         </div>
                     </div>`;
             });
@@ -449,8 +447,7 @@
             document.getElementById('user-modal-title').textContent = isEdit ? 'Modifica Allievo' : 'Crea Nuovo Allievo';
             document.getElementById('user-modal-name').value = userData.name || '';
             document.getElementById('user-modal-code').value = userData.code || '';
-            const saveBtn = document.getElementById('user-modal-save');
-            saveBtn.onclick = () => handleSaveUser(userData.id);
+            document.getElementById('user-modal-save').onclick = () => handleSaveUser(userData.id);
             document.getElementById('user-modal-overlay').style.display = 'flex';
         };
 
@@ -458,24 +455,18 @@
             const name = document.getElementById('user-modal-name').value.trim();
             const code = document.getElementById('user-modal-code').value.toUpperCase().trim();
             if (!name || !code) return alert("Nome e Codice non possono essere vuoti.");
-            
             showLoading(true);
-            const { error } = userId 
-                ? await supabase.from('users').update({ name, code }).eq('id', userId)
-                : await supabase.from('users').insert({ name, code, role: 'student' });
+            const { error } = userId ? await supabase.from('users').update({ name, code }).eq('id', userId) : await supabase.from('users').insert({ name, code, role: 'student' });
             showLoading(false);
-            
             if (error) return alert("Errore: il codice potrebbe essere già in uso.");
-            
             alert(`Allievo "${name}" salvato.`);
             await renderStudentList();
             document.getElementById('user-modal-overlay').style.display = 'none';
         };
 
-        const deleteUser = async (userId, userName, userCode) => {
+        const deleteUser = async (userId, userName) => {
             if (!confirm(`Sei sicuro di voler eliminare "${userName}"? Verranno cancellate anche tutte le sue prenotazioni.`)) return;
             showLoading(true);
-            // La foreign key con ON DELETE CASCADE si occuperà delle prenotazioni.
             const { error } = await supabase.from('users').delete().eq('id', userId);
             showLoading(false);
             if (error) return alert("Errore durante l'eliminazione.");
@@ -495,7 +486,7 @@
             contentDiv.innerHTML = '';
             data.forEach(locationData => {
                 let locationHtml = `<div style="border:1px solid #eee; padding:1rem; border-radius:8px; margin-bottom:1rem;"><div style="display:flex; justify-content:space-between; align-items:center;"><h4 style="margin:0;">${locationData.location}</h4><button class="btn btn-danger btn-sm btn-remove-location" data-location="${locationData.location}">&times; Rimuovi</button></div><div class="days-checkboxes" data-location="${locationData.location}" style="display:grid; grid-template-columns:repeat(auto-fit, minmax(100px, 1fr)); gap:0.5rem; margin-top:1rem;">`;
-                for (let i = 1; i <= 6; i++) { // From Monday to Saturday
+                for (let i = 1; i <= 6; i++) {
                     const isChecked = (locationData.work_days || []).includes(i);
                     locationHtml += `<div><input type="checkbox" id="${locationData.location}-${i}" value="${i}" ${isChecked ? 'checked' : ''}><label for="${locationData.location}-${i}" style="margin-left:0.25rem;">${daysOfWeek[i]}</label></div>`;
                 }
@@ -512,7 +503,6 @@
                 updates.push({ location, work_days });
             });
             showLoading(true);
-            // Upsert is perfect here: it updates existing locations and inserts new ones.
             const { error } = await supabase.from('schedule_config').upsert(updates, { onConflict: 'location' });
             showLoading(false);
             if(error) { alert("Errore nel salvataggio."); console.error(error); } 
@@ -542,27 +532,21 @@
         const renderNotifications = async () => {
             const listDiv = document.getElementById('notifications-list');
             showLoading(true);
-            const { data: notifications, error } = await supabase.from('notifications')
-                .select('*, bookings(*)')
-                .eq('status', 'pending');
+            const { data: notifications, error } = await supabase.from('notifications').select('*, bookings(*)').eq('status', 'pending');
             showLoading(false);
-
             if (error) return console.error(error);
-
             if (!notifications || notifications.length === 0) {
-                listDiv.innerHTML = '<p>Nessuna nuova notifica.</p>';
-                return;
+                listDiv.innerHTML = '<p>Nessuna nuova notifica.</p>'; return;
             }
-
             listDiv.innerHTML = notifications.map(n => `
                 <div class="notification-item" data-notification-id="${n.id}">
                     <p>Da: <strong>${n.student_name}</strong></p>
                     <p>Richiesta: <em>"${n.message}"</em></p>
                     <div class="notification-details">
                         Lezione da modificare:<br>
-                        Sede: ${n.bookings.location}<br>
+                        ${n.bookings ? `Sede: ${n.bookings.location}<br>
                         Giorno: ${new Date(n.bookings.date + 'T00:00:00').toLocaleDateString('it-IT')}<br>
-                        Orario: ${formatTime(n.bookings.start_time)} - ${formatTime(n.bookings.end_time)}
+                        Orario: ${formatTime(n.bookings.start_time)} - ${formatTime(n.bookings.end_time)}` : '<i>Info lezione non disponibili.</i>'}
                     </div>
                     <textarea placeholder="Scrivi la risposta qui..." style="margin-bottom: 0.5rem;"></textarea>
                     <button class="btn btn-primary btn-sm btn-reply">Invia Risposta</button>
@@ -570,7 +554,39 @@
                 </div>
             `).join('');
         };
+        
+        // --- ADMIN CALENDAR ACTIONS ---
+        const blockDay = async (dateStr, location) => {
+            if (!confirm(`Sei sicuro di bloccare il giorno ${dateStr}? Tutte le prenotazioni verranno cancellate e gli studenti avvisati.`)) return;
+            showLoading(true);
+            const { data: bookings, error: bErr } = await supabase.from('bookings').select('*, users(name, code)').eq('date', dateStr).eq('location', location);
+            if (bErr) { showLoading(false); return alert("Errore nel recupero prenotazioni."); }
 
+            if (bookings && bookings.length > 0) {
+                const bookingIds = bookings.map(b => b.id);
+                const notifications = bookings.map(b => ({
+                    student_code: b.users.code,
+                    student_name: b.users.name,
+                    message: `La tua lezione del ${dateStr} alle ${formatTime(b.start_time)} è stata annullata per indisponibilità. Contatta l'insegnante per riprogrammare.`,
+                    booking_id: b.id,
+                    status: 'replied',
+                    reply_message: `La tua lezione del ${dateStr} è stata annullata per indisponibilità. Contatta l'insegnante per riprogrammare.`
+                }));
+                await supabase.from('bookings').delete().in('id', bookingIds);
+                await supabase.from('notifications').insert(notifications);
+            }
+            await supabase.from('blocked_slots').insert({ date: dateStr, location, start_time: '15:00:00', end_time: '21:00:00'});
+            showLoading(false);
+            await renderTimeSlots(dateStr);
+        };
+
+        const unblockDay = async (dateStr, location) => {
+            showLoading(true);
+            await supabase.from('blocked_slots').delete().eq('date', dateStr).eq('location', location);
+            showLoading(false);
+            await renderTimeSlots(dateStr);
+        };
+        
         // --- 7. EVENT LISTENERS ---
         document.getElementById('login-btn').addEventListener('click', login);
         document.getElementById('student-code').addEventListener('keyup', (e) => { if (e.key === 'Enter') login(); });
@@ -581,19 +597,37 @@
             if (location) {
                 state.currentLocation = location;
                 document.getElementById('booking-location-title').textContent = `Sede di ${location}`;
-                state.currentDate = new Date();
-                state.currentDate.setDate(1);
+                state.currentDate = new Date(); state.currentDate.setDate(1);
                 renderCalendar();
                 navigateTo('booking-screen');
             }
         });
 
         document.getElementById('booking-screen').addEventListener('click', async (e) => {
+            const dateStr = formatDate(state.selectedDate || new Date());
+            const location = state.currentLocation;
             if (e.target.id === 'back-to-main-btn') return navigateTo('main-screen');
             if (e.target.id === 'prev-month-btn') { state.currentDate.setMonth(state.currentDate.getMonth() - 1); renderCalendar(); }
             if (e.target.id === 'next-month-btn') { state.currentDate.setMonth(state.currentDate.getMonth() + 1); renderCalendar(); }
-            if (e.target.classList.contains('valid')) {
-                await renderTimeSlots(e.target.dataset.date);
+            if (e.target.classList.contains('valid')) await renderTimeSlots(e.target.dataset.date);
+            if (e.target.id === 'block-day-btn') await blockDay(dateStr, location);
+            if (e.target.id === 'unblock-day-btn') await unblockDay(dateStr, location);
+            if (e.target.id === 'block-week-btn' || e.target.id === 'unblock-week-btn') {
+                const isBlocking = e.target.id === 'block-week-btn';
+                if (!confirm(`Sei sicuro di voler ${isBlocking ? 'bloccare' : 'sbloccare'} tutti i giorni lavorativi di questa settimana?`)) return;
+                showLoading(true);
+                const d = new Date(state.selectedDate);
+                const dayOfWeek = d.getDay() === 0 ? 7 : d.getDay();
+                const weekStart = new Date(d.setDate(d.getDate() - dayOfWeek + 1));
+                for(let i=0; i<6; i++) {
+                    const currentDay = new Date(weekStart);
+                    currentDay.setDate(weekStart.getDate() + i);
+                    if(isDayOfWeekAvailable(currentDay, location)) {
+                        isBlocking ? await blockDay(formatDate(currentDay), location) : await unblockDay(formatDate(currentDay), location);
+                    }
+                }
+                showLoading(false);
+                await renderTimeSlots(dateStr);
             }
         });
 
@@ -608,7 +642,7 @@
             const target = e.target;
             if (target.id === 'create-student-btn') showUserModal(false);
             if (target.classList.contains('btn-edit-student')) showUserModal(true, target.dataset);
-            if (target.classList.contains('btn-delete-student')) deleteUser(target.dataset.id, target.dataset.name, target.dataset.code);
+            if (target.classList.contains('btn-delete-student')) deleteUser(target.dataset.id, target.dataset.name);
         });
 
         document.getElementById('schedule-settings-screen').addEventListener('click', async (e) => {
@@ -618,56 +652,67 @@
         });
         
         document.getElementById('slots-content').addEventListener('click', async (e) => {
-            if (e.target.classList.contains('btn-book')) {
-                const startTime = e.target.dataset.time;
-                const duration = parseInt(e.target.dataset.duration);
+            const target = e.target;
+            // STUDENT ACTION
+            if (target.classList.contains('btn-book')) {
+                const startTime = target.dataset.time, duration = parseInt(target.dataset.duration);
                 const dateStr = formatDate(state.selectedDate);
                 if (confirm(`Confermi la prenotazione per ${state.selectedDate.toLocaleDateString('it-IT')} alle ${startTime} per ${duration} minuti?`)) {
-                    const startDateTime = new Date(`${dateStr}T${startTime}`);
-                    const endDateTime = new Date(startDateTime.getTime() + duration * 60000);
-                    const endTime = endDateTime.toTimeString().substring(0, 8);
-                    
+                    const endDateTime = new Date(new Date(`${dateStr}T${startTime}`).getTime() + duration * 60000);
                     showLoading(true);
-                    const { error } = await supabase.from('bookings').insert({
-                        user_code: state.currentUser.code,
-                        location: state.currentLocation,
-                        date: dateStr,
-                        start_time: startTime,
-                        end_time: endTime
-                    });
+                    const { error } = await supabase.from('bookings').insert({ user_code: state.currentUser.code, location: state.currentLocation, date: dateStr, start_time: startTime, end_time: endDateTime.toTimeString().substring(0,8) });
                     showLoading(false);
-
-                    if (error) {
-                        alert("Errore durante la prenotazione.");
-                        console.error(error);
-                    } else {
-                        alert("Prenotazione confermata!");
-                        await renderTimeSlots(dateStr);
-                        await renderStudentBookingSummary();
-                    }
+                    if (error) { alert("Errore durante la prenotazione."); console.error(error); }
+                    else { alert("Prenotazione confermata!"); await renderTimeSlots(dateStr); await renderStudentBookingSummary(); }
                 }
+            }
+            // ADMIN ACTION
+            else if (state.currentUser.role === 'admin' && target.classList.contains('time-slot')) {
+                const time = target.dataset.time, dateStr = formatDate(state.selectedDate), location = state.currentLocation;
+                const status = target.classList.contains('free') ? 'free' : (target.classList.contains('booked') ? 'booked' : 'blocked');
+                const bookingData = JSON.parse(target.dataset.booking);
+
+                const choice = prompt("Cosa vuoi fare?\n\n1. Gestisci Blocco Orario\n2. Assegna Lezione Singola\n3. Assegna Pacchetto a Studente");
+                if (!choice) return;
+
+                showLoading(true);
+                if (choice === '1') { // Gestisci Blocco
+                    if (status === 'blocked') {
+                        if (confirm('Questo slot è bloccato. Vuoi sbloccarlo?')) await supabase.from('blocked_slots').delete().eq('date', dateStr).eq('location', location).eq('start_time', time + ':00');
+                    } else {
+                        if (confirm(`Vuoi bloccare lo slot delle ${time}? ${status === 'booked' ? '\nATTENZIONE: la lezione prenotata verrà CANCELLATA e lo studente avvisato.' : ''}`)) {
+                            if (status === 'booked') {
+                                await supabase.from('bookings').delete().eq('id', bookingData.id);
+                                await supabase.from('notifications').insert({ student_code: bookingData.users.code, student_name: bookingData.users.name, message: `La tua lezione del ${dateStr} alle ${time} è stata annullata.`, booking_id: bookingData.id, status: 'replied', reply_message: `La tua lezione del ${dateStr} alle ${time} è stata annullata.` });
+                            }
+                            const endTime = new Date(new Date(`${dateStr}T${time}`).getTime() + 15 * 60000).toTimeString().substring(0,8);
+                            await supabase.from('blocked_slots').insert({ date: dateStr, location, start_time: time, end_time: endTime });
+                        }
+                    }
+                } else if (choice === '2') { // Assegna Lezione
+                     const studentCode = prompt("Inserisci il codice dell'allievo:").toUpperCase();
+                     if(studentCode) {
+                        const { data: student } = await supabase.from('users').select('code').eq('code', studentCode).single();
+                        if (student) {
+                            const endTime = new Date(new Date(`${dateStr}T${time}`).getTime() + 45 * 60000).toTimeString().substring(0,8);
+                            await supabase.from('bookings').insert({ user_code: student.code, location, date: dateStr, start_time: time, end_time: endTime });
+                        } else alert('Codice allievo non trovato.');
+                     }
+                } else if (choice === '3') { alert("Funzione non ancora implementata in questa versione."); } // TODO for package
+                showLoading(false);
+                await renderTimeSlots(dateStr);
             }
         });
 
         document.getElementById('student-bookings-summary').addEventListener('click', async (e) => {
             if (e.target.classList.contains('btn-request-change')) {
                 const bookingId = e.target.dataset.bookingId;
-                const message = prompt("Scrivi un messaggio per l'amministratore riguardo la tua richiesta di cambio (es. 'Vorrei spostare ad un altro giorno in settimana'):");
+                const message = prompt("Scrivi un messaggio per l'amministratore (es. 'Vorrei spostare ad un altro giorno'):");
                 if (message && message.trim()) {
                     showLoading(true);
-                    const { error } = await supabase.from('notifications').insert({
-                        student_code: state.currentUser.code,
-                        student_name: state.currentUser.name,
-                        message: message.trim(),
-                        booking_id: bookingId,
-                        status: 'pending'
-                    });
+                    const { error } = await supabase.from('notifications').insert({ student_code: state.currentUser.code, student_name: state.currentUser.name, message: message.trim(), booking_id: bookingId, status: 'pending' });
                     showLoading(false);
-                    if (error) {
-                        alert("Errore nell'invio della richiesta.");
-                    } else {
-                        alert("Richiesta inviata. Verrai avvisato quando l'amministratore risponderà.");
-                    }
+                    if (error) alert("Errore nell'invio della richiesta."); else alert("Richiesta inviata.");
                 }
             }
         });
@@ -676,22 +721,16 @@
             const item = e.target.closest('.notification-item');
             if (!item) return;
             const notificationId = item.dataset.notificationId;
-
             if (e.target.classList.contains('btn-mark-read')) {
                 showLoading(true);
                 await supabase.from('notifications').update({ status: 'read' }).eq('id', notificationId);
-                showLoading(false);
-                await renderNotifications();
-                await updateAdminUI();
             } else if (e.target.classList.contains('btn-reply')) {
                 const replyMessage = item.querySelector('textarea').value.trim();
                 if (!replyMessage) return alert("Scrivi un messaggio di risposta.");
                 showLoading(true);
                 await supabase.from('notifications').update({ status: 'replied', reply_message: replyMessage }).eq('id', notificationId);
-                showLoading(false);
-                await renderNotifications();
-                await updateAdminUI();
             }
+            showLoading(false); await renderNotifications(); await updateAdminUI();
         });
 
         document.getElementById('user-modal-cancel').addEventListener('click', () => { document.getElementById('user-modal-overlay').style.display = 'none'; });
