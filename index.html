@@ -180,7 +180,7 @@
     document.addEventListener('DOMContentLoaded', () => {
         // --- 1. CONFIGURAZIONE ---
         const supabaseUrl = 'https://esxpbpxdhqijsomqmrvr.supabase.co';
-        const supabaseKey = 'eyJhbGciOiUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVzeHBicHhkaHFpanNvbXFtcnZyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTUxNjExODYsImV4cCI6MjA3MDczNzE4Nn0.5WuPwviEzanny9ky0IgMIgFo4N83t8dQTUZsbp2wEnk';
+        const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVzeHBicHhkaHFpanNvbXFtcnZyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTUxNjExODYsImV4cCI6MjA3MDczNzE4Nn0.5WuPwviEzanny9ky0IgMIgFo4N83t8dQTUZsbp2wEnk';
         const supabase = window.supabase.createClient(supabaseUrl, supabaseKey);
 
         // --- 2. STATO E ELEMENTI DOM ---
@@ -225,7 +225,12 @@
             showLoading(true);
             const { data: user, error } = await supabase.from('users').select('*').eq('code', code).single();
             showLoading(false);
-            if (error && error.code !== 'PGRST116') return alert('Errore di connessione.');
+            
+            if (error && error.code !== 'PGRST116') {
+                console.error('Dettagli errore Supabase:', error); // Log the full error for debugging
+                return alert(`Si è verificato un errore.\n\nDettagli tecnici: ${error.message}`);
+            }
+            
             if (user) {
                 state.currentUser = user;
                 document.getElementById('welcome-message').textContent = `Ciao, ${user.name}!`;
