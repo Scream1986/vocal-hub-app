@@ -235,7 +235,7 @@
                 document.getElementById('selected-date-label').textContent = state.selectedDate.toLocaleDateString('it-IT', { weekday: 'long', day: 'numeric', month: 'long' });
                 document.getElementById('time-slots-container').style.display = 'block';
                 if (state.currentUser.role === 'admin') {
-                    document.getElementById('booking-admin-actions').innerHTML = `<div class="day-week-controls"><button id="block-day-btn" class="btn btn-danger">Blocca Giorno</button><button id="unblock-day-btn" class="btn btn-success">Sblocca Giorno</button><button id="block-week-btn" class="btn btn-danger">Blocca Settimana</button><button id="unblock-week-btn" class="btn btn-success">Sblocca Settimana</button></div>`;
+                    document.getElementById('booking-admin-actions').innerHTML = `<div class="day-week-controls"><button id="block-day-btn" class="btn btn-danger">Blocca Giorno</button><button id="unblock-day-btn" class="btn btn-success">Sblocca Giorno</button><button id="block-week-btn" class="btn btn-danger">Blocca Settimana (TUTTE LE SEDI)</button><button id="unblock-week-btn" class="btn btn-success">Sblocca Settimana (TUTTE LE SEDI)</button></div>`;
                 } else {
                     document.getElementById('booking-admin-actions').innerHTML = '';
                 }
@@ -433,9 +433,7 @@
             select.innerHTML = Object.keys(state.scheduleConfig).map(loc => `<option value="${loc}">${loc}</option>`).join('');
         };
 
-        const blockDay = async (dateStr, location) => {
-            if (!confirm(`Sei sicuro di bloccare il giorno ${dateStr}? Tutte le prenotazioni verranno cancellate e gli studenti avvisati.`)) return;
-            showLoading(true);
+        const internalBlockDay = async (dateStr, location) => {
             const { data: bookings } = await supabase.from('bookings').select('*, users(name, code)').eq('date', dateStr).eq('location', location);
             if (bookings && bookings.length > 0) {
                 const bookingIds = bookings.map(b => b.id);
@@ -445,15 +443,11 @@
             }
             await supabase.from('blocked_slots').delete().eq('date', dateStr).eq('location', location);
             await supabase.from('blocked_slots').insert({ date: dateStr, location, start_time: '15:00:00', end_time: '21:00:00'});
-            showLoading(false);
-            if (state.currentScreen === 'booking-screen') await renderTimeSlots(dateStr);
         };
-        const unblockDay = async (dateStr, location) => {
-            showLoading(true);
+        const internalUnblockDay = async (dateStr, location) => {
             await supabase.from('blocked_slots').delete().eq('date', dateStr).eq('location', location);
-            showLoading(false);
-            if (state.currentScreen === 'booking-screen') await renderTimeSlots(dateStr);
         };
+
         const assignPackage = async (startDate, location) => {
             const studentCode = prompt("Inserisci il codice dell'allievo:").toUpperCase();
             if(!studentCode) return;
@@ -540,26 +534,28 @@
         document.getElementById('booking-screen').addEventListener('click', async (e) => {
             const target = e.target;
             const dateStr = state.selectedDate ? formatDate(state.selectedDate) : null;
-            const location = state.currentLocation;
             if (target.id === 'prev-month-btn') { state.currentDate.setMonth(state.currentDate.getMonth() - 1); renderCalendar(); }
             if (target.id === 'next-month-btn') { state.currentDate.setMonth(state.currentDate.getMonth() + 1); renderCalendar(); }
             if (target.classList.contains('valid')) await renderTimeSlots(target.dataset.date, false);
-            if (!dateStr || !location || !target.closest('button')) return;
-            
-            if (target.id === 'block-day-btn') await blockDay(dateStr, location);
-            if (target.id === 'unblock-day-btn') await unblockDay(dateStr, location);
-            if (target.id === 'block-week-btn' || target.id === 'unblock-week-btn') {
-                const isBlocking = target.id === 'block-week-btn';
-                if (!confirm(`Sei sicuro di voler ${isBlocking ? 'bloccare' : 'sbloccare'} tutti i giorni lavorativi di questa settimana?`)) return;
+            if (!dateStr || !target.closest('button')) return;
+            const buttonId = target.closest('button').id;
+            if (buttonId === 'block-day-btn') { if (confirm(`Sei sicuro di bloccare il giorno ${dateStr}? Le prenotazioni verranno cancellate.`)) { await internalBlockDay(dateStr, state.currentLocation); } }
+            if (buttonId === 'unblock-day-btn') await internalUnblockDay(dateStr, state.currentLocation);
+            if (buttonId === 'block-week-btn' || buttonId === 'unblock-week-btn') {
+                const isBlocking = buttonId === 'block-week-btn';
+                if (!confirm(`SEI SICURO? Questa azione ${isBlocking ? 'bloccherà' : 'sbloccherà'} la settimana corrente per TUTTE le sedi.`)) return;
                 showLoading(true);
                 const d = new Date(state.selectedDate);
                 const dayOfWeek = d.getDay() === 0 ? 7 : d.getDay();
                 const weekStart = new Date(d.setDate(d.getDate() - dayOfWeek + 1));
                 const promises = [];
+                const allLocations = Object.keys(state.scheduleConfig);
                 for(let i=0; i<6; i++) {
                     const currentDay = new Date(weekStart); currentDay.setDate(weekStart.getDate() + i);
-                    if(isDayOfWeekAvailable(currentDay, location)) {
-                        promises.push(isBlocking ? blockDay(formatDate(currentDay), location) : unblockDay(formatDate(currentDay), location));
+                    for (const loc of allLocations) {
+                        if(isDayOfWeekAvailable(currentDay, loc)) {
+                            promises.push(isBlocking ? internalBlockDay(formatDate(currentDay), loc) : internalUnblockDay(formatDate(currentDay), loc));
+                        }
                     }
                 }
                 await Promise.all(promises);
@@ -574,15 +570,16 @@
         });
 
         document.getElementById('admin-tools-screen').addEventListener('click', async e => {
-            if (!e.target.closest('button')) return;
+            const button = e.target.closest('button');
+            if (!button || button.id.startsWith('back-to-main')) return;
             const location = document.getElementById('admin-tools-location').value;
             if (!location) return alert("Seleziona una sede prima di procedere.");
             let startDate, endDate;
-            if(e.target.id === 'reset-day-btn') {
+            if(button.id === 'reset-day-btn') {
                 const day = document.getElementById('reset-day-date').value;
                 if(!day) return alert("Seleziona un giorno.");
                 startDate = endDate = day;
-            } else if (e.target.id === 'reset-period-btn') {
+            } else if (button.id === 'reset-period-btn') {
                 startDate = document.getElementById('reset-period-start').value;
                 endDate = document.getElementById('reset-period-end').value;
                 if(!startDate || !endDate) return alert("Seleziona una data di inizio e una di fine.");
@@ -598,7 +595,7 @@
 
         document.getElementById('student-list-screen').addEventListener('click', (e) => {
             const button = e.target.closest('button');
-            if (!button) return;
+            if (!button || button.id.startsWith('back-to-main')) return;
             if (button.id === 'create-student-btn') showUserModal(false);
             if (button.classList.contains('btn-edit-student')) showUserModal(true, button.dataset);
             if (button.classList.contains('btn-delete-student')) deleteUser(button.dataset.id, button.dataset.name);
@@ -606,7 +603,7 @@
 
         document.getElementById('schedule-settings-screen').addEventListener('click', (e) => {
             const button = e.target.closest('button');
-            if (!button) return;
+            if (!button || button.id.startsWith('back-to-main')) return;
             if (button.id === 'add-location-btn') {
                 const input = document.getElementById('new-location-name'); const newLocationName = input.value.trim();
                 if (newLocationName && !document.querySelector(`[data-location-block="${newLocationName}"]`)) {
