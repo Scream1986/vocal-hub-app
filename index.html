@@ -28,9 +28,11 @@
         .modal-content { background-color: white; padding: 1.5rem; border-radius: 8px; width: 90%; max-width: 400px; box-shadow: 0 5px 20px rgba(0, 0, 0, 0.2); }
         .modal-buttons { display: flex; justify-content: flex-end; gap: 0.5rem; margin-top: 1.5rem; }
         .modal-buttons .btn { width: auto; margin-top: 0; }
-        .student-list-item { display: flex; justify-content: space-between; align-items: center; padding: 0.75rem; border: 1px solid #ddd; border-radius: 4px; margin-bottom: 0.5rem; }
-        .student-info { font-weight: 500; }
+        .student-list-item { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; padding: 0.75rem; border: 1px solid #ddd; border-radius: 4px; margin-bottom: 0.5rem; }
+        .student-info { font-weight: 500; flex-basis: 100%; margin-bottom: 0.5rem;}
+        .student-actions { display: flex; justify-content: flex-end; width: 100%;}
         .student-actions .btn { width: auto; margin-top: 0; margin-left: 0.5rem; }
+        .history-item { background-color: #f8f9fa; border: 1px solid #eee; padding: 0.75rem; border-radius: 4px; margin-bottom: 0.5rem; }
         .calendar { margin-top: 1.5rem; }
         #calendar-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; }
         #calendar-weekdays, #calendar-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 5px; text-align: center; }
@@ -76,7 +78,8 @@
             <div id="schedule-screen" class="screen"><h2>Orari della Settimana</h2><div id="schedule-header"><button id="prev-week-btn" class="btn btn-secondary btn-sm">&lt; Prec.</button><h4 id="week-label" style="margin:0;"></h4><button id="next-week-btn" class="btn btn-secondary btn-sm">Succ. &gt;</button></div><div id="schedule-grid" style="margin-top: 1rem;"></div><button id="back-to-main-from-schedule-btn" class="btn btn-secondary" style="margin-top: 1rem;">Torna Indietro</button></div>
             <div id="admin-tools-screen" class="screen"><h2>Strumenti Admin</h2><p style="text-align: center; font-size: 0.9rem; color: #6c757d;">Usa questi strumenti per cancellazioni di massa. Le azioni sono irreversibili.</p><div class="admin-tool-card"><h4>Svuota Prenotazioni</h4><div class="form-group"><label for="admin-tools-location">Seleziona Sede</label><select id="admin-tools-location"></select></div><hr><div class="form-group"><label for="reset-day-date">Svuota Giorno Singolo</label><input type="date" id="reset-day-date"><button id="reset-day-btn" class="btn btn-danger">Svuota Giorno</button></div><hr><div class="form-group"><label for="reset-period-start">Svuota Periodo Personalizzato</label><input type="date" id="reset-period-start"><input type="date" id="reset-period-end" style="margin-top: 0.5rem;"><button id="reset-period-btn" class="btn btn-danger">Svuota Periodo</button></div></div><button id="back-to-main-from-admin-tools-btn" class="btn btn-secondary">Torna Indietro</button></div>
             <div id="schedule-settings-screen" class="screen"><h2>Impostazioni Calendario</h2><div id="schedule-settings-content"></div><hr><div class="form-group"><label for="new-location-name">Aggiungi una nuova sede</label><input type="text" id="new-location-name" placeholder="Nome nuova sede"><button id="add-location-btn" class="btn btn-secondary" style="margin-top: 0.5rem;">Aggiungi Sede</button></div><button id="save-schedule-settings-btn" class="btn btn-primary">Salva Modifiche</button><button id="back-to-main-from-schedule-settings-btn" class="btn btn-secondary">Torna Indietro</button></div>
-            <div id="student-list-screen" class="screen"><h2>Gestione Allievi</h2><button id="create-student-btn" class="btn btn-primary" style="margin-bottom: 1rem;">+ Crea Nuovo Allievo</button><div id="student-list"></div><button id="back-to-main-from-student-list-btn" class="btn btn-secondary" style="margin-top: 1rem;">Torna Indietro</button></div>
+            <div id="student-list-screen" class="screen"><h2>Gestione Allievi</h2><button id="create-student-btn" class="btn btn-primary" style="margin-bottom: 1rem;">+ Crea Nuovo Allievo</button><div id="student-list"></div><button id="back-to-main-btn" class="btn btn-secondary" style="margin-top: 1rem;">Torna Indietro</button></div>
+            <div id="student-detail-screen" class="screen"><h2 id="student-detail-name"></h2><div id="student-detail-content"></div><button id="back-to-student-list-btn" class="btn btn-secondary" style="margin-top: 1rem;">Torna alla Lista Allievi</button></div>
             <div id="notifications-screen" class="screen"><h2>Notifiche Studenti</h2><div id="notifications-list"></div><button id="back-to-main-from-notifications-btn" class="btn btn-secondary">Torna Indietro</button></div>
         </main>
     </div>
@@ -85,14 +88,14 @@
     <script>
     document.addEventListener('DOMContentLoaded', () => {
         const supabaseUrl = 'https://esxpbpxdhqijsomqmrvr.supabase.co';
-        const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVzeHBicHhkaHFpanNvbXFtcnZyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTUxNjExODYsImV4cCI6MjA3MDczNzE4Nn0.5WuPwviEzanny9ky0IgMIgFo4N83t8dQTUZsbp2wEnk';
+        const supabaseKey = 'eyJhbGciOiUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVzeHBicHhkaHFpanNvbXFtcnZyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTUxNjExODYsImV4cCI6MjA3MDczNzE4Nn0.5WuPwviEzanny9ky0IgMIgFo4N83t8dQTUZsbp2wEnk';
         const supabase = window.supabase.createClient(supabaseUrl, supabaseKey);
 
         let state = { currentUser: null, scheduleConfig: {}, currentDate: new Date(), currentLocation: null, selectedDate: null, scheduleCurrentDate: new Date(), calendarPollingInterval: null, locationsToDelete: [] };
         state.currentDate.setDate(1);
         const loadingSpinner = document.getElementById('loading-spinner');
         const mainEl = document.querySelector('main');
-        const screens = { 'login-screen': document.getElementById('login-screen'), 'main-screen': document.getElementById('main-screen'), 'schedule-settings-screen': document.getElementById('schedule-settings-screen'), 'student-list-screen': document.getElementById('student-list-screen'), 'booking-screen': document.getElementById('booking-screen'), 'notifications-screen': document.getElementById('notifications-screen'), 'schedule-screen': document.getElementById('schedule-screen'), 'admin-tools-screen': document.getElementById('admin-tools-screen'), };
+        const screens = { 'login-screen': document.getElementById('login-screen'), 'main-screen': document.getElementById('main-screen'), 'schedule-settings-screen': document.getElementById('schedule-settings-screen'), 'student-list-screen': document.getElementById('student-list-screen'), 'booking-screen': document.getElementById('booking-screen'), 'notifications-screen': document.getElementById('notifications-screen'), 'schedule-screen': document.getElementById('schedule-screen'), 'admin-tools-screen': document.getElementById('admin-tools-screen'), 'student-detail-screen': document.getElementById('student-detail-screen') };
 
         const showLoading = (show) => { loadingSpinner.style.display = show ? 'block' : 'none'; };
         const navigateTo = (screenId) => {
@@ -235,7 +238,7 @@
                 document.getElementById('selected-date-label').textContent = state.selectedDate.toLocaleDateString('it-IT', { weekday: 'long', day: 'numeric', month: 'long' });
                 document.getElementById('time-slots-container').style.display = 'block';
                 if (state.currentUser.role === 'admin') {
-                    document.getElementById('booking-admin-actions').innerHTML = `<div class="day-week-controls"><button id="block-day-btn" class="btn btn-danger">Blocca Giorno</button><button id="unblock-day-btn" class="btn btn-success">Sblocca Giorno</button><button id="block-week-btn" class="btn btn-danger">Blocca Settimana (TUTTE LE SEDI)</button><button id="unblock-week-btn" class="btn btn-success">Sblocca Settimana (TUTTE LE SEDI)</button></div>`;
+                    document.getElementById('booking-admin-actions').innerHTML = `<div class="day-week-controls"><button id="block-day-btn" class="btn btn-danger">Blocca Giorno</button><button id="unblock-day-btn" class="btn btn-success">Sblocca Giorno</button><button id="block-week-btn" class="btn btn-danger">Blocca Settimana (TUTTE)</button><button id="unblock-week-btn" class="btn btn-success">Sblocca Settimana (TUTTE)</button></div>`;
                 } else {
                     document.getElementById('booking-admin-actions').innerHTML = '';
                 }
@@ -289,8 +292,29 @@
             showLoading(false);
             if (error) return console.error("Errore caricamento allievi:", error);
             users.forEach(student => {
-                listDiv.innerHTML += `<div class="student-list-item"><div class="student-info">${student.name}<br><small style="color: #6c757d;">Codice: ${student.code}</small></div><div class="student-actions"><button class="btn btn-secondary btn-sm btn-edit-student" data-id="${student.id}" data-name="${student.name}" data-code="${student.code}">Modifica</button><button class="btn btn-danger btn-sm btn-delete-student" data-id="${student.id}" data-name="${student.name}">Elimina</button></div></div>`;
+                listDiv.innerHTML += `<div class="student-list-item"><div class="student-info">${student.name}<br><small style="color: #6c757d;">Codice: ${student.code}</small></div><div class="student-actions"><button class="btn btn-primary btn-sm btn-view-details" data-student-code="${student.code}" data-student-name="${student.name}">Dettagli</button><button class="btn btn-secondary btn-sm btn-edit-student" data-id="${student.id}" data-name="${student.name}" data-code="${student.code}">Modifica</button><button class="btn btn-danger btn-sm btn-delete-student" data-id="${student.id}" data-name="${student.name}">Elimina</button></div></div>`;
             });
+        };
+        const renderStudentDetail = async (studentCode, studentName) => {
+            document.getElementById('student-detail-name').textContent = `Storico di ${studentName}`;
+            const contentDiv = document.getElementById('student-detail-content');
+            contentDiv.innerHTML = 'Caricamento...';
+            navigateTo('student-detail-screen');
+            showLoading(true);
+            const { data: pastBookings, error } = await supabase.from('bookings').select('*').eq('user_code', studentCode).lt('date', formatDate(new Date())).order('date', { ascending: false });
+            showLoading(false);
+            if (error) {
+                contentDiv.innerHTML = '<p>Errore nel caricamento dello storico.</p>';
+                return;
+            }
+            if (!pastBookings || pastBookings.length === 0) {
+                contentDiv.innerHTML = '<h4>Lezioni Svolte</h4><p>Nessuna lezione passata trovata.</p>';
+                return;
+            }
+            contentDiv.innerHTML = '<h4>Lezioni Svolte</h4>' + pastBookings.map(b => {
+                const lessonDate = new Date(b.date + 'T00:00:00');
+                return `<div class="history-item"><strong>${lessonDate.toLocaleDateString('it-IT', {day: '2-digit', month: '2-digit', year: 'numeric'})}</strong> - ${formatTime(b.start_time)} (${b.location})</div>`;
+            }).join('');
         };
         const showUserModal = (isEdit, userData = {}) => {
             document.getElementById('user-modal-title').textContent = isEdit ? 'Modifica Allievo' : 'Crea Nuovo Allievo';
@@ -504,7 +528,8 @@
             
             if (id === 'login-btn') await login();
             if (id === 'logout-btn') logout();
-            if (id.startsWith('back-to-main')) navigateTo('main-screen');
+            if (id === 'back-to-main-btn' || id.startsWith('back-to-main-from-')) navigateTo('main-screen');
+            if (id === 'back-to-student-list-btn') navigateTo('student-list-screen');
 
             if (state.currentUser?.role === 'admin') {
                 if (id === 'manage-students-btn') { await renderStudentList(); navigateTo('student-list-screen'); }
@@ -537,10 +562,11 @@
             if (target.id === 'prev-month-btn') { state.currentDate.setMonth(state.currentDate.getMonth() - 1); renderCalendar(); }
             if (target.id === 'next-month-btn') { state.currentDate.setMonth(state.currentDate.getMonth() + 1); renderCalendar(); }
             if (target.classList.contains('valid')) await renderTimeSlots(target.dataset.date, false);
-            if (!dateStr || !target.closest('button')) return;
-            const buttonId = target.closest('button').id;
-            if (buttonId === 'block-day-btn') { if (confirm(`Sei sicuro di bloccare il giorno ${dateStr}? Le prenotazioni verranno cancellate.`)) { await internalBlockDay(dateStr, state.currentLocation); } }
-            if (buttonId === 'unblock-day-btn') await internalUnblockDay(dateStr, state.currentLocation);
+            const button = target.closest('button');
+            if (!dateStr || !button) return;
+            const buttonId = button.id;
+            if (buttonId === 'block-day-btn') { if (confirm(`Sei sicuro di bloccare il giorno ${dateStr}? Le prenotazioni verranno cancellate.`)) { await internalBlockDay(dateStr, state.currentLocation); await renderTimeSlots(dateStr); } }
+            if (buttonId === 'unblock-day-btn') { await internalUnblockDay(dateStr, state.currentLocation); await renderTimeSlots(dateStr); }
             if (buttonId === 'block-week-btn' || buttonId === 'unblock-week-btn') {
                 const isBlocking = buttonId === 'block-week-btn';
                 if (!confirm(`SEI SICURO? Questa azione ${isBlocking ? 'bloccherà' : 'sbloccherà'} la settimana corrente per TUTTE le sedi.`)) return;
@@ -565,8 +591,10 @@
         });
         
         document.getElementById('schedule-screen').addEventListener('click', async e => {
-            if (e.target.id === 'prev-week-btn') { state.scheduleCurrentDate.setDate(state.scheduleCurrentDate.getDate() - 7); await renderSchedule(); }
-            if (e.target.id === 'next-week-btn') { state.scheduleCurrentDate.setDate(state.scheduleCurrentDate.getDate() + 7); await renderSchedule(); }
+            const button = e.target.closest('button');
+            if (!button || button.id.startsWith('back-to-main')) return;
+            if (button.id === 'prev-week-btn') { state.scheduleCurrentDate.setDate(state.scheduleCurrentDate.getDate() - 7); await renderSchedule(); }
+            if (button.id === 'next-week-btn') { state.scheduleCurrentDate.setDate(state.scheduleCurrentDate.getDate() + 7); await renderSchedule(); }
         });
 
         document.getElementById('admin-tools-screen').addEventListener('click', async e => {
@@ -593,10 +621,11 @@
             else alert(`${bookingCount} prenotazioni cancellate con successo.`);
         });
 
-        document.getElementById('student-list-screen').addEventListener('click', (e) => {
+        document.getElementById('student-list-screen').addEventListener('click', async (e) => {
             const button = e.target.closest('button');
             if (!button || button.id.startsWith('back-to-main')) return;
             if (button.id === 'create-student-btn') showUserModal(false);
+            if (button.classList.contains('btn-view-details')) await renderStudentDetail(button.dataset.studentCode, button.dataset.studentName);
             if (button.classList.contains('btn-edit-student')) showUserModal(true, button.dataset);
             if (button.classList.contains('btn-delete-student')) deleteUser(button.dataset.id, button.dataset.name);
         });
