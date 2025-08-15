@@ -210,7 +210,12 @@
             if (screens[screenId]) screens[screenId].classList.add('active');
             state.currentScreen = screenId;
         };
-        const formatDate = (date) => date.toISOString().split('T')[0];
+        const formatDate = (date) => {
+            const year = date.getFullYear();
+            const month = (date.getMonth() + 1).toString().padStart(2, '0');
+            const day = date.getDate().toString().padStart(2, '0');
+            return `${year}-${month}-${day}`;
+        };
         const formatTime = (timeStr) => timeStr ? timeStr.substring(0, 5) : '';
 
         // --- 4. FUNZIONI CORE ---
@@ -658,7 +663,7 @@
                 state.currentLocation = location;
                 document.getElementById('booking-location-title').textContent = `Sede di ${location}`;
                 state.currentDate = new Date(); state.currentDate.setDate(1);
-                renderCalendar();
+                renderCalendar(); 
                 navigateTo('booking-screen');
                 state.calendarPollingInterval = setInterval(() => {
                     if (state.selectedDate) renderTimeSlots(formatDate(state.selectedDate), true);
