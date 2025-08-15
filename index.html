@@ -180,11 +180,11 @@
     document.addEventListener('DOMContentLoaded', () => {
         // --- 1. CONFIGURAZIONE ---
         const supabaseUrl = 'https://esxpbpxdhqijsomqmrvr.supabase.co';
-        const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVzeHBicHhkaHFpanNvbXFtcnZyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTUxNjExODYsImV4cCI6MjA3MDczNzE4Nn0.5WuPwviEzanny9ky0IgMIgFo4N83t8dQTUZsbp2wEnk';
+        const supabaseKey = 'eyJhbGciOiUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVzeHBicHhkaHFpanNvbXFtcnZyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTUxNjExODYsImV4cCI6MjA3MDczNzE4Nn0.5WuPwviEzanny9ky0IgMIgFo4N83t8dQTUZsbp2wEnk';
         const supabase = window.supabase.createClient(supabaseUrl, supabaseKey);
 
         // --- 2. STATO E ELEMENTI DOM ---
-        let state = { currentUser: null, scheduleConfig: {}, currentDate: new Date(), currentLocation: null, selectedDate: null, scheduleCurrentDate: new Date(), calendarPollingInterval: null };
+        let state = { currentUser: null, scheduleConfig: {}, currentDate: new Date(), currentLocation: null, selectedDate: null, scheduleCurrentDate: new Date(), calendarPollingInterval: null, locationsToDelete: [] };
         state.currentDate.setDate(1);
         const loadingSpinner = document.getElementById('loading-spinner');
         const mainEl = document.querySelector('main');
@@ -283,7 +283,7 @@
 
         const logout = () => {
             navigateTo('login-screen'); // Clear interval by navigating
-            state = { currentUser: null, scheduleConfig: {}, currentDate: new Date(), currentLocation: null, selectedDate: null, scheduleCurrentDate: new Date(), calendarPollingInterval: null };
+            state = { currentUser: null, scheduleConfig: {}, currentDate: new Date(), currentLocation: null, selectedDate: null, scheduleCurrentDate: new Date(), calendarPollingInterval: null, locationsToDelete: [] };
             state.currentDate.setDate(1);
             document.getElementById('student-code').value = '';
             document.getElementById('admin-actions').innerHTML = '';
@@ -522,6 +522,7 @@
         };
 
         const renderScheduleSettings = async () => {
+            state.locationsToDelete = [];
             const contentDiv = document.getElementById('schedule-settings-content');
             contentDiv.innerHTML = 'Caricamento...';
             showLoading(true);
@@ -545,22 +546,39 @@
         };
 
         const saveScheduleSettings = async () => {
+            showLoading(true);
+            const promises = [];
+            if (state.locationsToDelete.length > 0) {
+                promises.push(supabase.from('schedule_config').delete().in('location', state.locationsToDelete));
+            }
             const updates = [];
             document.querySelectorAll('.days-checkboxes').forEach(div => {
                 const location = div.dataset.location;
                 const work_days = Array.from(div.querySelectorAll('input:checked')).map(box => parseInt(box.value));
                 updates.push({ location, work_days });
             });
-            showLoading(true);
-            const { error } = await supabase.from('schedule_config').upsert(updates, { onConflict: 'location' });
+            if (updates.length > 0) {
+                promises.push(supabase.from('schedule_config').upsert(updates, { onConflict: 'location' }));
+            }
+            
+            const results = await Promise.all(promises);
             showLoading(false);
-            if(error) { alert("Errore nel salvataggio."); } 
-            else { alert("Impostazioni salvate."); await loadInitialData(); navigateTo('main-screen'); }
+
+            const hasError = results.some(res => res.error);
+            if (hasError) {
+                alert("Errore nel salvataggio di alcune modifiche.");
+            } else {
+                alert("Impostazioni salvate.");
+                await loadInitialData();
+                navigateTo('main-screen');
+            }
         };
 
         const removeLocationFromDOM = (locationToRemove) => {
-            if (!confirm(`Sei sicuro di voler rimuovere la sede "${locationToRemove}"? La modifica sarà definitiva solo dopo aver salvato.`)) return;
-            document.querySelector(`[data-location-block="${locationToRemove}"]`)?.remove();
+            if (confirm(`Sei sicuro di voler rimuovere la sede "${locationToRemove}"? La modifica sarà definitiva solo dopo aver cliccato 'Salva Modifiche'.`)) {
+                state.locationsToDelete.push(locationToRemove);
+                document.querySelector(`[data-location-block="${locationToRemove}"]`)?.remove();
+            }
         };
 
         const renderNotifications = async () => {
@@ -568,25 +586,29 @@
             showLoading(true);
             const { data: notifications, error } = await supabase.from('notifications').select('*, bookings(*)').eq('status', 'pending');
             showLoading(false);
-            if (error) return console.error(error);
+            if (error) return console.error("Errore caricamento notifiche:", error);
             if (!notifications || notifications.length === 0) {
                 listDiv.innerHTML = '<p>Nessuna nuova notifica.</p>'; return;
             }
-            listDiv.innerHTML = notifications.map(n => `
+            listDiv.innerHTML = notifications.map(n => {
+                let bookingDetails = '<i>Info sulla lezione originale non disponibili (potrebbe essere stata cancellata).</i>';
+                if (n.bookings) {
+                    bookingDetails = `Sede: ${n.bookings.location}<br>
+                        Giorno: ${new Date(n.bookings.date + 'T00:00:00').toLocaleDateString('it-IT')}<br>
+                        Orario: ${formatTime(n.bookings.start_time)} - ${formatTime(n.bookings.end_time)}`;
+                }
+                return `
                 <div class="notification-item" data-notification-id="${n.id}">
                     <p>Da: <strong>${n.student_name}</strong></p>
                     <p>Richiesta: <em>"${n.message}"</em></p>
                     <div class="notification-details">
-                        Lezione da modificare:<br>
-                        ${n.bookings ? `Sede: ${n.bookings.location}<br>
-                        Giorno: ${new Date(n.bookings.date + 'T00:00:00').toLocaleDateString('it-IT')}<br>
-                        Orario: ${formatTime(n.bookings.start_time)} - ${formatTime(n.bookings.end_time)}` : '<i>Info lezione non disponibili.</i>'}
+                        ${bookingDetails}
                     </div>
                     <textarea placeholder="Scrivi la risposta qui..." style="margin-bottom: 0.5rem;"></textarea>
                     <button class="btn btn-primary btn-sm btn-reply">Invia Risposta</button>
                     <button class="btn btn-secondary btn-sm btn-mark-read">Segna come Letta</button>
-                </div>
-            `).join('');
+                </div>`;
+            }).join('');
         };
         
         const renderSchedule = async () => {
@@ -632,9 +654,9 @@
                 const bookingIds = bookings.map(b => b.id);
                 const notifications = bookings.map(b => ({
                     student_code: b.users.code, student_name: b.users.name,
-                    message: `La tua lezione del ${dateStr} alle ${formatTime(b.start_time)} è stata annullata per indisponibilità.`,
-                    booking_id: b.id, status: 'replied',
-                    reply_message: `La tua lezione del ${dateStr} è stata annullata per indisponibilità.`
+                    message: `La tua lezione del ${dateStr} alle ${formatTime(b.start_time)} è stata annullata per indisponibilità. Questa notifica è automatica, contatta l'insegnante per dettagli.`,
+                    booking_id: null, status: 'replied',
+                    reply_message: `La tua lezione del ${dateStr} è stata annullata per indisponibilità. Contatta l'insegnante per riprogrammare.`
                 }));
                 await supabase.from('bookings').delete().in('id', bookingIds);
                 await supabase.from('notifications').insert(notifications);
@@ -650,6 +672,74 @@
             await supabase.from('blocked_slots').delete().eq('date', dateStr).eq('location', location);
             showLoading(false);
             if (state.currentScreen === 'booking-screen') await renderTimeSlots(dateStr);
+        };
+
+        const assignPackage = async (startDate, location) => {
+            const studentCode = prompt("Inserisci il codice dell'allievo:").toUpperCase();
+            if(!studentCode) return;
+            const { data: student } = await supabase.from('users').select('code').eq('code', studentCode).single();
+            if (!student) return alert('Codice allievo non trovato.');
+            
+            const numLessons = parseInt(prompt("Quante lezioni nel pacchetto?"));
+            if (isNaN(numLessons) || numLessons < 1) return alert("Numero lezioni non valido.");
+
+            const duration = parseInt(prompt("Durata di ogni lezione (45 o 60 min)?"));
+            if (![45, 60].includes(duration)) return alert("Durata non valida.");
+
+            showLoading(true);
+            let searchDate = new Date(startDate);
+            let lessonsBooked = [];
+            let attempts = 0; // Safety break
+
+            while(lessonsBooked.length < numLessons && attempts < 365) {
+                if (isDayOfWeekAvailable(searchDate, location)) {
+                    const dateStr = formatDate(searchDate);
+                    const { data: bookings, errorB } = await supabase.from('bookings').select('start_time, end_time').eq('date', dateStr).eq('location', location);
+                    const { data: blocked, errorL } = await supabase.from('blocked_slots').select('start_time, end_time').eq('date', dateStr).eq('location', location);
+                    
+                    if (!errorB && !errorL) {
+                        const allEvents = [...bookings, ...blocked];
+                        const potentialStarts = new Set(["15:00"]);
+                        allEvents.forEach(e => potentialStarts.add(formatTime(e.end_time)));
+
+                        for (const timeStr of Array.from(potentialStarts).sort()) {
+                            const start = new Date(`${dateStr}T${timeStr}`);
+                            const end = new Date(start.getTime() + duration * 60000);
+                            const isFree = !allEvents.some(event => {
+                                const eventStart = new Date(`${dateStr}T${event.start_time}`);
+                                const eventEnd = new Date(`${dateStr}T${event.end_time}`);
+                                return start < eventEnd && end > eventStart;
+                            });
+
+                            if (end <= new Date(`${dateStr}T21:00:00`) && isFree) {
+                                lessonsBooked.push({
+                                    user_code: student.code, location, date: dateStr, 
+                                    start_time: timeStr, end_time: end.toTimeString().substring(0,8)
+                                });
+                                break; 
+                            }
+                        }
+                    }
+                }
+                searchDate.setDate(searchDate.getDate() + (lessonsBooked.length > 0 && lessonsBooked[lessonsBooked.length-1].date === formatDate(searchDate) ? 7 : 1));
+                attempts++;
+            }
+
+            if(lessonsBooked.length < numLessons) {
+                showLoading(false);
+                return alert(`Impossibile trovare slot liberi per tutte le ${numLessons} lezioni. Sono state trovate solo ${lessonsBooked.length} disponibilità.`);
+            }
+
+            const { error: insertError } = await supabase.from('bookings').insert(lessonsBooked);
+            showLoading(false);
+
+            if (insertError) {
+                alert("Errore durante la creazione del pacchetto.");
+            } else {
+                const dates = lessonsBooked.map(b => new Date(b.date + 'T00:00:00').toLocaleDateString('it-IT')).join('\n');
+                alert(`Pacchetto di ${numLessons} lezioni creato per ${studentCode}.\n\nDate prenotate:\n${dates}`);
+            }
+            await renderTimeSlots(formatDate(state.selectedDate));
         };
         
         // --- 7. EVENT LISTENERS ---
@@ -719,7 +809,7 @@
             const location = document.getElementById('admin-tools-location').value;
             if (!location) return alert("Seleziona una sede prima di procedere.");
 
-            let startDate, endDate, count = 0;
+            let startDate, endDate;
             if(e.target.id === 'reset-day-btn') {
                 const day = document.getElementById('reset-day-date').value;
                 if(!day) return alert("Seleziona un giorno.");
@@ -779,32 +869,36 @@
                 else info += 'Libero';
                 alert(info);
 
-                const choice = prompt("Cosa vuoi fare?\n\n1. Gestisci Blocco Orario\n2. Assegna Lezione Singola");
+                const choice = prompt("Cosa vuoi fare?\n\n1. Gestisci Blocco Orario\n2. Assegna Lezione Singola\n3. Assegna Pacchetto a Studente");
                 if (!choice) return;
 
-                showLoading(true);
                 if (choice === '1') {
+                    showLoading(true);
                     if (statusClass === 'blocked') {
                         if (confirm('Questo slot è bloccato. Vuoi sbloccarlo?')) await supabase.from('blocked_slots').delete().eq('date', dateStr).eq('location', location).gte('start_time', time + ':00').lt('end_time', new Date(new Date(`${dateStr}T${time}`).getTime() + 16 * 60000).toTimeString().substring(0,8));
                     } else if (confirm(`Vuoi bloccare lo slot delle ${time}? ${statusClass === 'booked' ? '\nATTENZIONE: la lezione prenotata verrà CANCELLATA e lo studente avvisato.' : ''}`)) {
                         if (statusClass === 'booked') {
                             await supabase.from('bookings').delete().eq('id', bookingData.id);
-                            await supabase.from('notifications').insert({ student_code: bookingData.users.code, student_name: bookingData.users.name, message: `La tua lezione del ${dateStr} alle ${time} è stata annullata.`, booking_id: bookingData.id, status: 'replied', reply_message: `La tua lezione del ${dateStr} alle ${time} è stata annullata.` });
+                            await supabase.from('notifications').insert({ student_code: bookingData.users.code, student_name: bookingData.users.name, message: `La tua lezione del ${dateStr} alle ${time} è stata annullata.`, booking_id: null, status: 'replied', reply_message: `La tua lezione del ${dateStr} alle ${time} è stata annullata.` });
                         }
                         const endTime = new Date(new Date(`${dateStr}T${time}`).getTime() + 15 * 60000).toTimeString().substring(0,8);
                         await supabase.from('blocked_slots').insert({ date: dateStr, location, start_time: time, end_time: endTime });
                     }
+                    showLoading(false); await renderTimeSlots(dateStr, false);
                 } else if (choice === '2') {
                      const studentCode = prompt("Inserisci il codice dell'allievo:").toUpperCase();
                      if(studentCode) {
+                        showLoading(true);
                         const { data: student } = await supabase.from('users').select('code').eq('code', studentCode).single();
                         if (student) {
                             const endTime = new Date(new Date(`${dateStr}T${time}`).getTime() + 45 * 60000).toTimeString().substring(0,8);
                             await supabase.from('bookings').insert({ user_code: student.code, location, date: dateStr, start_time: time, end_time: endTime });
                         } else alert('Codice allievo non trovato.');
+                        showLoading(false); await renderTimeSlots(dateStr, false);
                      }
+                } else if (choice === '3') {
+                    await assignPackage(state.selectedDate, location);
                 }
-                showLoading(false); await renderTimeSlots(dateStr, false);
             }
         });
 
