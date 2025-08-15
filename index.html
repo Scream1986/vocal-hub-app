@@ -1,142 +1,4 @@
-<!DOCTYPE html>
-<html lang="it">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Vocal Hub Online</title>
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <style>
-        /* Stili CSS per l'interfaccia utente */
-        :root {
-            --header-bg: #000;
-            --button-primary-bg: #ffc107;
-            --button-primary-text: #000;
-            --secondary-color: #6c757d;
-            --success-color: #28a745;
-            --danger-color: #dc3545;
-            --light-color: #f8f9fa;
-        }
-        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; margin: 0; background-color: var(--light-color); display: flex; justify-content: center; align-items: center; min-height: 100vh; padding: 1rem 0; }
-        .app-container { width: 100%; max-width: 480px; background-color: white; border-radius: 8px; box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1); overflow: hidden; }
-        header { background-color: var(--header-bg); color: white; text-align: center; }
-        main { padding: 1.5rem; }
-        .screen { display: none; }
-        .screen.active { display: block; }
-        h2, h3, h4 { margin-top: 0; text-align: center; }
-        .form-group { margin-bottom: 1rem; }
-        label { display: block; margin-bottom: 0.5rem; font-weight: 500; }
-        input[type="text"], input[type="number"], select { width: 100%; padding: 0.75rem; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; }
-        .btn { display: block; width: 100%; padding: 0.75rem; border: none; border-radius: 4px; font-size: 1rem; font-weight: bold; cursor: pointer; text-align: center; text-decoration: none; margin-top: 0.5rem; }
-        .btn-primary { background-color: var(--button-primary-bg); color: var(--button-primary-text); }
-        .btn-secondary { background-color: var(--secondary-color); color: white; }
-        .btn-success { background-color: var(--success-color); color: white; }
-        .btn-danger { background-color: var(--danger-color); color: white; }
-        .btn-sm { padding: 0.4rem 0.8rem; font-size: 0.8rem; }
-        .btn-logout { background-color: var(--danger-color); color: white; margin-top: 1rem; }
-        #loading-spinner { display: none; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: 2000; background-color: rgba(255,255,255,0.8); padding: 2rem; border-radius: 8px; box-shadow: 0 5px 15px rgba(0,0,0,0.2); font-weight: bold; }
-        .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0, 0, 0, 0.6); display: none; justify-content: center; align-items: center; z-index: 1000; }
-        .modal-content { background-color: white; padding: 1.5rem; border-radius: 8px; width: 90%; max-width: 400px; box-shadow: 0 5px 20px rgba(0, 0, 0, 0.2); }
-        .modal-buttons { display: flex; justify-content: flex-end; gap: 0.5rem; margin-top: 1.5rem; }
-        .modal-buttons .btn { width: auto; margin-top: 0; }
-        .student-list-item { display: flex; justify-content: space-between; align-items: center; padding: 0.75rem; border: 1px solid #ddd; border-radius: 4px; margin-bottom: 0.5rem; }
-        .student-info { font-weight: 500; }
-        .student-actions .btn { width: auto; margin-top: 0; margin-left: 0.5rem; }
-        .calendar { margin-top: 1.5rem; }
-        #calendar-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; }
-        #calendar-weekdays, #calendar-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 5px; text-align: center; }
-        .calendar-day, .weekday { padding: 0.75rem 0.25rem; border-radius: 4px; }
-        .weekday { font-weight: bold; }
-        .calendar-day.invalid { color: #ccc; pointer-events: none; }
-        .calendar-day.valid { background-color: #ffffff; border: 1px solid #ddd; cursor: pointer; }
-        .calendar-day.selected { background-color: var(--button-primary-bg); color: var(--button-primary-text); font-weight: bold; border: 1px solid var(--button-primary-bg); }
-        .admin-time-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(70px, 1fr)); gap: 8px; }
-        .time-slot { padding: 0.5rem; border-radius: 4px; text-align: center; cursor: pointer; font-size: 0.9rem; color: white; border: 1px solid rgba(0, 0, 0, 0.1); }
-        .time-slot.free { background-color: var(--success-color); }
-        .time-slot.booked { background-color: var(--secondary-color); }
-        .time-slot.blocked { background-color: var(--danger-color); }
-        .day-week-controls { display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; margin-bottom: 1rem; }
-        .day-week-controls .btn { margin-top: 0; font-size: 0.8rem; padding: 0.5rem; }
-        .student-time-slots .available-slot { display: flex; justify-content: space-between; align-items: center; padding: 1rem; border: 1px solid #ddd; border-radius: 4px; margin-bottom: 0.5rem; }
-    </style>
-</head>
-<body>
-    <div id="loading-spinner">Caricamento...</div>
-
-    <div class="app-container">
-        <header id="app-header" style="padding: 0.5rem;">
-            <img src="https://esxpbpxdhqijsomqmrvr.supabase.co/storage/v1/object/public/sito/logo.jpg" alt="Vocal Hub Logo" style="height: 60px; width: auto; display: block; margin: 0 auto;">
-        </header>
-        <main>
-            <div id="login-screen" class="screen active">
-                <h2>Accesso</h2>
-                <div class="form-group"><label for="student-code">Codice Allievo</label><input type="text" id="student-code" placeholder="Inserisci il tuo codice" autocomplete="off"></div>
-                <button id="login-btn" class="btn btn-primary">Accedi</button>
-            </div>
-
-            <div id="main-screen" class="screen">
-                <h2 id="welcome-message"></h2>
-                <div id="student-bookings-summary"></div>
-                <p style="text-align:center;">Seleziona una sede per prenotare una nuova lezione:</p>
-                <div id="location-buttons-container"></div>
-                <div id="admin-actions"></div>
-                <button id="logout-btn" class="btn btn-logout">Esci</button>
-            </div>
-
-            <div id="booking-screen" class="screen">
-                <h2 id="booking-location-title"></h2>
-                <div id="booking-admin-actions"></div>
-                <div class="calendar">
-                    <div id="calendar-header">
-                        <button id="prev-month-btn" class="btn btn-secondary" style="width: auto; padding: 0.5rem 1rem;">&lt;</button>
-                        <h3 id="month-year-label"></h3>
-                        <button id="next-month-btn" class="btn btn-secondary" style="width: auto; padding: 0.5rem 1rem;">&gt;</button>
-                    </div>
-                    <div id="calendar-weekdays"><div class="weekday">Lun</div><div class="weekday">Mar</div><div class="weekday">Mer</div><div class="weekday">Gio</div><div class="weekday">Ven</div><div class="weekday">Sab</div><div class="weekday">Dom</div></div>
-                    <div id="calendar-grid"></div>
-                </div>
-                <div id="time-slots-container" style="display:none;">
-                    <h3>Orari per il <span id="selected-date-label"></span></h3>
-                    <div id="slots-content"></div>
-                </div>
-                <button id="back-to-main-btn" class="btn btn-secondary" style="margin-top: 2rem;">Torna Indietro</button>
-            </div>
-
-            <div id="schedule-settings-screen" class="screen">
-                <h2>Impostazioni Calendario</h2>
-                <div id="schedule-settings-content"></div><hr>
-                <div class="form-group"><label for="new-location-name">Aggiungi una nuova sede</label><input type="text" id="new-location-name" placeholder="Nome nuova sede"><button id="add-location-btn" class="btn btn-secondary" style="margin-top: 0.5rem;">Aggiungi Sede</button></div>
-                <button id="save-schedule-settings-btn" class="btn btn-primary">Salva Modifiche</button>
-                <button id="back-to-main-from-schedule-settings-btn" class="btn btn-secondary">Torna Indietro</button>
-            </div>
-
-            <div id="student-list-screen" class="screen">
-                <h2>Gestione Allievi</h2>
-                <button id="create-student-btn" class="btn btn-primary" style="margin-bottom: 1rem;">+ Crea Nuovo Allievo</button>
-                <div id="student-list"></div>
-                <button id="back-to-main-from-student-list-btn" class="btn btn-secondary" style="margin-top: 1rem;">Torna Indietro</button>
-            </div>
-        </main>
-    </div>
-
-    <div id="user-modal-overlay" class="modal-overlay">
-        <div class="modal-content">
-            <h4 id="user-modal-title">Crea Nuovo Allievo</h4>
-            <div class="form-group"><label for="user-modal-name">Nome Allievo</label><input type="text" id="user-modal-name"></div>
-            <div class="form-group"><label for="user-modal-code">Codice Allievo</label><input type="text" id="user-modal-code" autocomplete="off"></div>
-            <div class="modal-buttons"><button id="user-modal-cancel" class="btn btn-secondary">Annulla</button><button id="user-modal-save" class="btn btn-primary">Salva</button></div>
-        </div>
-    </div>
-
-    <div id="generic-modal-overlay" class="modal-overlay">
-        <div class="modal-content">
-            <h4 id="generic-modal-title"></h4>
-            <p id="generic-modal-message"></p>
-            <div id="generic-modal-buttons" class="modal-buttons"></div>
-        </div>
-    </div>
-
-
-    <script>
+<script>
     document.addEventListener('DOMContentLoaded', () => {
         // --- 1. CONFIGURAZIONE SUPABASE ---
         const supabaseUrl = 'https://esxpbpxdhqijsomqmrvr.supabase.co';
@@ -144,20 +6,20 @@
         const supabaseClient = supabase.createClient(supabaseUrl, supabaseKey);
 
         // --- 2. STATO GLOBALE E ELEMENTI DOM ---
-        let state = { 
-            currentUser: null, 
-            scheduleConfig: {}, 
-            currentDate: new Date(), 
-            currentLocation: null, 
+        let state = {
+            currentUser: null,
+            scheduleConfig: {},
+            currentDate: new Date(),
+            currentLocation: null,
             selectedDate: null,
-            allUsers: [] 
+            allUsers: []
         };
         state.currentDate.setDate(1);
 
         const loadingSpinner = document.getElementById('loading-spinner');
         const mainEl = document.querySelector('main');
-        const screens = { 
-            'login-screen': document.getElementById('login-screen'), 
+        const screens = {
+            'login-screen': document.getElementById('login-screen'),
             'main-screen': document.getElementById('main-screen'),
             'schedule-settings-screen': document.getElementById('schedule-settings-screen'),
             'student-list-screen': document.getElementById('student-list-screen'),
@@ -178,6 +40,7 @@
         };
         const formatDate = (date) => date.toISOString().split('T')[0];
         const formatTime = (date) => date.toTimeString().substring(0, 5);
+
         const generateTimeSlots = (startHour, endHour, intervalMinutes) => {
             const slots = [];
             let currentTime = new Date(`1970-01-01T${startHour}:00:00Z`);
@@ -188,7 +51,7 @@
             }
             return slots;
         };
-        
+
         const showModal = (title, message, buttonsConfig) => {
             genericModal.title.textContent = title;
             genericModal.message.innerHTML = message;
@@ -205,7 +68,7 @@
             });
             genericModal.overlay.style.display = 'flex';
         };
-        
+
         const showAlert = (message, title = "Avviso") => {
             showModal(title, message, [{ text: 'OK', class: 'btn-primary' }]);
         };
@@ -216,7 +79,7 @@
                 { text: 'Conferma', class: 'btn-primary', onClick: onConfirm }
             ]);
         };
-
+        
         // --- 4. FUNZIONI CORE ---
         const login = async () => {
             const code = document.getElementById('student-code').value.toUpperCase().trim();
@@ -229,10 +92,12 @@
                 state.currentUser = user;
                 document.getElementById('welcome-message').textContent = `Ciao, ${user.name}!`;
                 await loadInitialData();
-                if(user.role === 'admin') { 
-                    updateAdminUI(); 
-                    const { data: users } = await supabaseClient.from('users').select('code, name').eq('role', 'student');
+                if (user.role === 'admin') {
+                    updateAdminUI();
+                    const { data: users } = await supabaseClient.from('users').select('id, code, name').eq('role', 'student');
                     state.allUsers = users || [];
+                } else {
+                    renderStudentBookingSummary();
                 }
                 navigateTo('main-screen');
             } else {
@@ -266,6 +131,52 @@
                 container.innerHTML = `<p style="text-align:center; color: #666;">Nessuna sede configurata.</p>`;
             }
         };
+        
+        const renderStudentBookingSummary = async () => {
+            const summaryDiv = document.getElementById('student-bookings-summary');
+            summaryDiv.innerHTML = '<h4>Le Tue Prossime Lezioni</h4>';
+            showLoading(true);
+            const today = formatDate(new Date());
+            const { data: myFutureBookings, error } = await supabaseClient
+                .from('bookings')
+                .select('*')
+                .eq('user_code', state.currentUser.code)
+                .gte('date', today)
+                .order('date', { ascending: true })
+                .order('start_time', { ascending: true });
+            showLoading(false);
+
+            if (error) {
+                console.error("Error fetching bookings:", error);
+                summaryDiv.innerHTML += "<p>Impossibile caricare le prenotazioni.</p>";
+                return;
+            }
+
+            if (myFutureBookings.length > 0) {
+                myFutureBookings.forEach(booking => {
+                    const lessonStart = new Date(`${booking.date}T${booking.start_time}`);
+                    const now = new Date();
+                    const hoursUntilLesson = (lessonStart - now) / (1000 * 60 * 60);
+
+                    // Aggiunta gestione per richiesta cambio, se vuoi implementarla
+                    let changeButtonHtml = `<button class="btn btn-secondary btn-sm" disabled>Cambio non disp.</button>`;
+                    if (hoursUntilLesson > 36) {
+                        changeButtonHtml = `<button class="btn btn-secondary btn-sm btn-request-change" data-booking-id="${booking.id}">Richiedi Cambio</button>`;
+                    }
+
+                    summaryDiv.innerHTML += `
+                        <div class="student-list-item" style="background-color: #e9ecef; margin-bottom: 0.5rem;">
+                            <span>
+                                <strong>${new Date(booking.date + 'T00:00:00').toLocaleDateString('it-IT', {weekday: 'long', day: 'numeric', month: 'long'})}</strong><br>
+                                <small>Ore: ${booking.start_time.substring(0,5)} - ${booking.end_time.substring(0,5)} (${booking.location})</small>
+                            </span>
+                            </div>
+                    `;
+                });
+            } else {
+                summaryDiv.innerHTML = "<p style='text-align:center;'>Nessuna lezione futura prenotata.</p><hr>";
+            }
+        };
 
         const updateAdminUI = () => {
             document.getElementById('admin-actions').innerHTML = `
@@ -273,22 +184,23 @@
                 <button id="manage-schedule-btn" class="btn btn-secondary">Impostazioni Calendario</button>
             `;
         };
-        
+
         const logout = () => {
             showConfirm('Uscita', 'Sei sicuro di voler uscire?', () => {
                 state = { currentUser: null, scheduleConfig: {}, currentDate: new Date(), currentLocation: null, selectedDate: null, allUsers: [] };
                 state.currentDate.setDate(1);
                 document.getElementById('student-code').value = '';
+                document.getElementById('student-bookings-summary').innerHTML = '';
                 navigateTo('login-screen');
             });
         };
 
         // --- 5. GESTIONE CALENDARIO E ORARI ---
         const isDayOfWeekAvailable = (date, location) => {
-            const dayOfWeek = date.getDay();
+            const dayOfWeek = date.getDay(); // 0 = Domenica, 1 = Lunedì...
             return state.scheduleConfig[location]?.includes(dayOfWeek) || false;
         };
-        
+
         const renderCalendar = () => {
             const calendarGrid = document.getElementById('calendar-grid');
             calendarGrid.innerHTML = '';
@@ -302,7 +214,7 @@
             const firstDay = new Date(year, month, 1);
             const lastDay = new Date(year, month + 1, 0);
             let dayOfWeek = firstDay.getDay();
-            dayOfWeek = dayOfWeek === 0 ? 6 : dayOfWeek - 1; 
+            dayOfWeek = dayOfWeek === 0 ? 6 : dayOfWeek - 1; // Allineamento a Lunedì = 0
             
             for (let i = 0; i < dayOfWeek; i++) { calendarGrid.insertAdjacentHTML('beforeend', '<div></div>'); }
             
@@ -311,7 +223,10 @@
                 const dayEl = document.createElement('div');
                 dayEl.textContent = day;
                 dayEl.classList.add('calendar-day');
-                if (isDayOfWeekAvailable(date, state.currentLocation)) {
+                // Controlla se il giorno è nel futuro
+                if (date < new Date(new Date().toDateString())) {
+                     dayEl.classList.add('invalid');
+                } else if (isDayOfWeekAvailable(date, state.currentLocation)) {
                     dayEl.classList.add('valid');
                     dayEl.dataset.date = formatDate(date);
                 } else {
@@ -320,7 +235,7 @@
                 calendarGrid.appendChild(dayEl);
             }
         };
-
+        
         const renderTimeSlots = async (date) => {
             state.selectedDate = date;
             const dateStr = formatDate(date);
@@ -517,6 +432,10 @@
                     const isChecked = (locationData.work_days || []).includes(i);
                     locationHtml += `<div><input type="checkbox" id="${locationData.location}-${i}" value="${i}" ${isChecked ? 'checked' : ''}><label for="${locationData.location}-${i}" style="margin-left:0.25rem;">${daysOfWeek[i]}</label></div>`;
                 }
+                // Aggiungiamo anche la domenica
+                 const isSundayChecked = (locationData.work_days || []).includes(0);
+                 locationHtml += `<div><input type="checkbox" id="${locationData.location}-0" value="0" ${isSundayChecked ? 'checked' : ''}><label for="${locationData.location}-0" style="margin-left:0.25rem;">${daysOfWeek[0]}</label></div>`;
+
                 locationHtml += `</div></div>`;
                 contentDiv.innerHTML += locationHtml;
             });
@@ -530,10 +449,10 @@
                 newConfig.push({ location, work_days });
             });
             showLoading(true);
-            await supabaseClient.from('schedule_config').delete().neq('id', -1);
-            const { error } = await supabaseClient.from('schedule_config').insert(newConfig);
+            // Upsert per semplicità: inserisce o aggiorna
+            const { error } = await supabaseClient.from('schedule_config').upsert(newConfig, { onConflict: 'location' });
             showLoading(false);
-            if(error) { showAlert("Errore nel salvataggio."); } 
+            if(error) { showAlert(`Errore nel salvataggio: ${error.message}`); console.error(error); } 
             else { showAlert("Impostazioni salvate."); await loadInitialData(); navigateTo('main-screen'); }
         };
         const addLocation = async () => {
@@ -549,10 +468,12 @@
         const removeLocation = (locationToRemove) => {
             showConfirm('Rimuovi Sede', `Sei sicuro di voler rimuovere la sede "${locationToRemove}"?`, async () => {
                 showLoading(true);
+                await supabaseClient.from('bookings').delete().eq('location', locationToRemove);
+                await supabaseClient.from('blocked_slots').delete().eq('location', locationToRemove);
                 const { error } = await supabaseClient.from('schedule_config').delete().eq('location', locationToRemove);
                 showLoading(false);
                 if(error) { showAlert("Errore durante la rimozione."); } 
-                else { await renderScheduleSettings(); }
+                else { await renderScheduleSettings(); await loadInitialData(); }
             });
         };
 
@@ -621,7 +542,10 @@
         });
 
         document.getElementById('booking-screen').addEventListener('click', async (e) => {
-            if (e.target.id === 'back-to-main-btn') return navigateTo('main-screen');
+            if (e.target.id === 'back-to-main-btn') {
+                 if (state.currentUser.role === 'student') await renderStudentBookingSummary();
+                 return navigateTo('main-screen');
+            }
             if (e.target.id === 'prev-month-btn') { state.currentDate.setMonth(state.currentDate.getMonth() - 1); renderCalendar(); }
             if (e.target.id === 'next-month-btn') { state.currentDate.setMonth(state.currentDate.getMonth() + 1); renderCalendar(); }
             if (e.target.classList.contains('valid')) {
@@ -729,6 +653,4 @@
 
         document.getElementById('user-modal-cancel').addEventListener('click', () => { document.getElementById('user-modal-overlay').style.display = 'none'; });
     });
-    </script>
-</body>
-</html>
+</script>
