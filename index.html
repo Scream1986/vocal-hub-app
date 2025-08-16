@@ -17,6 +17,7 @@
         .form-group { margin-bottom: 1rem; }
         label { display: block; margin-bottom: 0.5rem; font-weight: 500; }
         input[type="text"], input[type="date"], textarea, select { width: 100%; padding: 0.75rem; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; }
+        textarea { min-height: 80px; }
         .btn { display: block; width: 100%; padding: 0.75rem; border: none; border-radius: 4px; font-size: 1rem; font-weight: bold; cursor: pointer; text-align: center; text-decoration: none; margin-top: 0.5rem; }
         .btn-primary { background-color: var(--button-primary-bg); color: var(--button-primary-text); }
         .btn-secondary { background-color: var(--secondary-color); color: white; }
@@ -28,9 +29,13 @@
         .modal-content { background-color: white; padding: 1.5rem; border-radius: 8px; width: 90%; max-width: 400px; box-shadow: 0 5px 20px rgba(0, 0, 0, 0.2); }
         .modal-buttons { display: flex; justify-content: flex-end; gap: 0.5rem; margin-top: 1.5rem; }
         .modal-buttons .btn { width: auto; margin-top: 0; }
-        .student-list-item { display: flex; justify-content: space-between; align-items: center; padding: 0.75rem; border: 1px solid #ddd; border-radius: 4px; margin-bottom: 0.5rem; }
+        .student-list-item { background-color: #fff; border: 1px solid #ddd; border-radius: 8px; margin-bottom: 1rem; overflow: hidden; }
+        .student-header { display: flex; justify-content: space-between; align-items: center; padding: 0.75rem 1rem; background-color: #f8f9fa; }
         .student-info { font-weight: 500; }
-        .student-actions .btn { width: auto; margin-top: 0; margin-left: 0.5rem; }
+        .student-actions .btn { width: auto; margin: 0 0.25rem; }
+        .student-details { display: none; padding: 1rem; border-top: 1px solid #ddd; background-color: #fdfdfd; }
+        .student-stats { display: flex; justify-content: space-around; text-align: center; margin-bottom: 1rem; }
+        .stat-item span { display: block; font-size: 1.2rem; font-weight: bold; }
         .calendar { margin-top: 1.5rem; }
         #calendar-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; }
         #calendar-weekdays, #calendar-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 5px; text-align: center; }
@@ -133,6 +138,7 @@
             const code = document.getElementById('student-code').value.toUpperCase().trim();
             if (!code) return;
             showLoading(true);
+            // MODIFICATO: La select ora è esplicita per assicurarci di avere i nuovi campi
             const { data: user, error } = await supabase.from('users').select('*').eq('code', code).single();
             showLoading(false);
             if (error && error.code !== 'PGRST116') {
@@ -193,6 +199,8 @@
             document.getElementById('student-bookings-summary').innerHTML = '';
         };
 
+        // ## MODIFICATO: renderStudentBookingSummary ##
+        // Aggiunto il contatore dei cambi utilizzati/disponibili
         const renderStudentBookingSummary = async () => {
             const summaryDiv = document.getElementById('student-bookings-summary');
             const counterDisplay = document.getElementById('lesson-counter-display');
@@ -202,11 +210,15 @@
             showLoading(false);
             
             const count = bookings ? bookings.length : 0;
+            const used = state.currentUser.changes_used ?? 0;
+            const allowed = state.currentUser.changes_allowed ?? 0;
+
+            let counterHTML = '';
             if (count > 0) {
-                counterDisplay.innerHTML = `<div style="text-align:center; font-size: 1.1rem; color: #333; margin-bottom: 1.5rem; border: 1px solid #eee; padding: 0.75rem; border-radius: 8px; background-color: #f8f9fa;">Hai <strong>${count}</strong> lezioni in programma.</div>`;
-            } else {
-                counterDisplay.innerHTML = '';
+                 counterHTML += `<div style="text-align:center; font-size: 1.1rem; color: #333; margin-bottom: 0.5rem; border: 1px solid #eee; padding: 0.75rem; border-radius: 8px; background-color: #f8f9fa;">Hai <strong>${count}</strong> lezioni in programma.</div>`;
             }
+             counterHTML += `<div style="text-align:center; font-size: 0.9rem; color: #666; margin-bottom: 1.5rem;">Cambi utilizzati: <strong>${used} / ${allowed}</strong></div>`;
+            counterDisplay.innerHTML = counterHTML;
 
             if (error) return console.error("Errore caricamento prenotazioni:", error);
             if (bookings && bookings.length > 0) {
@@ -348,16 +360,60 @@
             }
         };
 
+        // ## NUOVA: renderStudentList ##
+        // Completamente riscritta per gestire la nuova interfaccia con dettagli e note
         const renderStudentList = async () => {
             const listDiv = document.getElementById('student-list');
-            listDiv.innerHTML = ''; showLoading(true);
+            listDiv.innerHTML = 'Caricamento...'; 
+            showLoading(true);
+
+            // Step 1: Carica tutti gli utenti e tutte le lezioni passate
             const { data: users, error } = await supabase.from('users').select('*').eq('role', 'student').order('name');
+            const { data: pastBookings, error: bookingsError } = await supabase.from('bookings').select('user_code').lt('date', formatDate(new Date()));
+            
             showLoading(false);
-            if (error) return console.error("Errore caricamento allievi:", error);
-            users.forEach(student => {
-                listDiv.innerHTML += `<div class="student-list-item"><div class="student-info">${student.name}<br><small style="color: #6c757d;">Codice: ${student.code}</small></div><div class="student-actions"><button class="btn btn-secondary btn-sm btn-edit-student" data-id="${student.id}" data-name="${student.name}" data-code="${student.code}">Modifica</button><button class="btn btn-danger btn-sm btn-delete-student" data-id="${student.id}" data-name="${student.name}">Elimina</button></div></div>`;
-            });
+            if (error || bookingsError) return console.error("Errore caricamento allievi o lezioni:", error, bookingsError);
+
+            // Step 2: Calcola il numero di lezioni svolte per ogni allievo
+            const lessonsCountMap = new Map();
+            if (pastBookings) {
+                for (const booking of pastBookings) {
+                    lessonsCountMap.set(booking.user_code, (lessonsCountMap.get(booking.user_code) || 0) + 1);
+                }
+            }
+
+            // Step 3: Genera l'HTML per ogni allievo
+            listDiv.innerHTML = users.map(student => {
+                const lessonsDone = lessonsCountMap.get(student.code) || 0;
+                return `
+                <div class="student-list-item">
+                    <div class="student-header">
+                        <div class="student-info">
+                            ${student.name}<br><small style="color: #6c757d;">Codice: ${student.code}</small>
+                        </div>
+                        <div class="student-actions">
+                            <button class="btn btn-secondary btn-sm btn-toggle-details" data-target="details-${student.id}">Dettagli</button>
+                        </div>
+                    </div>
+                    <div class="student-details" id="details-${student.id}">
+                        <div class="student-stats">
+                            <div class="stat-item"><span>${lessonsDone}</span>Lezioni Svolte</div>
+                            <div class="stat-item"><span>${student.changes_used ?? 0} / ${student.changes_allowed ?? 0}</span>Cambi Usati</div>
+                        </div>
+                        <div class="form-group">
+                            <label for="notes-${student.id}">Note Private</label>
+                            <textarea id="notes-${student.id}">${student.admin_notes || ''}</textarea>
+                        </div>
+                        <div class="student-actions" style="justify-content: flex-end; display: flex;">
+                             <button class="btn btn-primary btn-sm btn-save-notes" data-id="${student.id}" style="width: auto;">Salva Note</button>
+                             <button class="btn btn-secondary btn-sm btn-edit-student" data-id="${student.id}" data-name="${student.name}" data-code="${student.code}">Modifica</button>
+                             <button class="btn btn-danger btn-sm btn-delete-student" data-id="${student.id}" data-name="${student.name}">Elimina</button>
+                        </div>
+                    </div>
+                </div>`;
+            }).join('');
         };
+
         const showUserModal = (isEdit, userData = {}) => {
             document.getElementById('user-modal-title').textContent = isEdit ? 'Modifica Allievo' : 'Crea Nuovo Allievo';
             document.getElementById('user-modal-name').value = userData.name || '';
@@ -514,15 +570,23 @@
             await supabase.from('blocked_slots').delete().eq('date', dateStr).eq('location', location);
         };
 
+        // ## MODIFICATO: assignPackage ##
+        // Aggiunta la richiesta per il numero di cambi e l'aggiornamento dell'utente
         const assignPackage = async (startDate, location) => {
             const studentCode = prompt("Inserisci il codice dell'allievo:").toUpperCase();
             if(!studentCode) return;
             const { data: student } = await supabase.from('users').select('code').eq('code', studentCode).single();
             if (!student) return alert('Codice allievo non trovato.');
+            
             const numLessons = parseInt(prompt("Quante lezioni nel pacchetto?"));
             if (isNaN(numLessons) || numLessons < 1) return alert("Numero lezioni non valido.");
+            
             const duration = parseInt(prompt("Durata di ogni lezione (45 o 60 min)?"));
             if (![45, 60].includes(duration)) return alert("Durata non valida.");
+
+            const changes = parseInt(prompt("Quanti cambi lezione consentiti per questo pacchetto?"));
+            if (isNaN(changes) || changes < 0) return alert("Numero cambi non valido.");
+
             showLoading(true);
             let searchDate = new Date(startDate), lessonsBooked = [], attempts = 0;
             while(lessonsBooked.length < numLessons && attempts < 365) {
@@ -553,12 +617,18 @@
                 showLoading(false);
                 return alert(`Impossibile trovare slot liberi per tutte le ${numLessons} lezioni. Sono state trovate solo ${lessonsBooked.length} disponibilità.`);
             }
+
+            // Inserisci le lezioni e aggiorna l'utente con i cambi
             const { error: insertError } = await supabase.from('bookings').insert(lessonsBooked);
+            if (!insertError) {
+                 await supabase.from('users').update({ changes_allowed: changes, changes_used: 0 }).eq('code', studentCode);
+            }
+            
             showLoading(false);
             if (insertError) alert("Errore durante la creazione del pacchetto.");
             else {
                 const dates = lessonsBooked.map(b => new Date(b.date + 'T00:00:00').toLocaleDateString('it-IT')).join('\n');
-                alert(`Pacchetto di ${numLessons} lezioni creato per ${studentCode}.\n\nDate prenotate:\n${dates}`);
+                alert(`Pacchetto di ${numLessons} lezioni e ${changes} cambi creato per ${studentCode}.\n\nDate prenotate:\n${dates}`);
             }
             await renderTimeSlots(formatDate(state.selectedDate));
         };
@@ -664,12 +734,32 @@
             else alert(`${bookingCount} prenotazioni cancellate con successo.`);
         });
 
-        document.getElementById('student-list-screen').addEventListener('click', (e) => {
+        // ## MODIFICATO: event listener per Gestione Allievi ##
+        // Gestisce il toggle dei dettagli e il salvataggio delle note
+        document.getElementById('student-list-screen').addEventListener('click', async (e) => {
             const button = e.target.closest('button');
             if (!button || button.id.startsWith('back-to-main')) return;
+
             if (button.id === 'create-student-btn') showUserModal(false);
             if (button.classList.contains('btn-edit-student')) showUserModal(true, button.dataset);
             if (button.classList.contains('btn-delete-student')) deleteUser(button.dataset.id, button.dataset.name);
+
+            if (button.classList.contains('btn-toggle-details')) {
+                const targetId = button.dataset.target;
+                const detailsDiv = document.getElementById(targetId);
+                if (detailsDiv) {
+                    detailsDiv.style.display = detailsDiv.style.display === 'block' ? 'none' : 'block';
+                }
+            }
+            if (button.classList.contains('btn-save-notes')) {
+                const studentId = button.dataset.id;
+                const notes = document.getElementById(`notes-${studentId}`).value;
+                showLoading(true);
+                const { error } = await supabase.from('users').update({ admin_notes: notes }).eq('id', studentId);
+                showLoading(false);
+                if (error) alert('Errore nel salvataggio delle note.');
+                else alert('Note salvate con successo.');
+            }
         });
 
         document.getElementById('schedule-settings-screen').addEventListener('click', (e) => {
@@ -745,16 +835,33 @@
             }
         });
 
+        // ## MODIFICATO: event listener per Richiesta Cambio ##
+        // Controlla se i cambi sono disponibili prima di inviare la notifica
         document.getElementById('student-bookings-summary').addEventListener('click', async (e) => {
             const button = e.target.closest('button');
             if (button && button.classList.contains('btn-request-change')) {
+                if (state.currentUser.changes_used >= state.currentUser.changes_allowed) {
+                    alert('Hai esaurito i cambi a tua disposizione.');
+                    return;
+                }
+
                 const bookingId = button.dataset.bookingId;
                 const message = prompt("Scrivi un messaggio per l'amministratore (es. 'Vorrei spostare ad un altro giorno'):");
                 if (message && message.trim()) {
                     showLoading(true);
                     const { error } = await supabase.from('notifications').insert({ student_code: state.currentUser.code, student_name: state.currentUser.name, message: message.trim(), booking_id: bookingId, status: 'pending' });
-                    showLoading(false);
-                    if (error) alert("Errore nell'invio della richiesta."); else alert("Richiesta inviata.");
+                    if (error) {
+                        showLoading(false);
+                        alert("Errore nell'invio della richiesta.");
+                    } else {
+                        // Incrementa il contatore dei cambi usati
+                        const newUsedCount = state.currentUser.changes_used + 1;
+                        await supabase.from('users').update({ changes_used: newUsedCount }).eq('code', state.currentUser.code);
+                        state.currentUser.changes_used = newUsedCount; // Aggiorna lo stato locale
+                        showLoading(false);
+                        alert("Richiesta inviata.");
+                        await renderStudentBookingSummary(); // Ricarica il sommario per aggiornare i contatori
+                    }
                 }
             }
         });
