@@ -71,13 +71,33 @@
         </header>
         <main>
             <div id="login-screen" class="screen active"><h2>Accesso</h2><div class="form-group"><label for="student-code">Codice Allievo</label><input type="text" id="student-code" placeholder="Inserisci il tuo codice" autocomplete="off"></div><button id="login-btn" class="btn btn-primary">Accedi</button></div>
-            <div id="main-screen" class="screen"><h2 id="welcome-message"></h2><div id="student-bookings-summary"></div><hr><p style="text-align:center;">Seleziona una sede per prenotare una nuova lezione:</p><div id="location-buttons-container"></div><div id="admin-actions" style="margin-top: 1.5rem;"></div><button id="logout-btn" class="btn btn-logout">Esci</button></div>
+            
+            <div id="main-screen" class="screen">
+                <h2 id="welcome-message"></h2>
+                <div id="lesson-counter-display"></div>
+                <div id="student-bookings-summary"></div>
+                <div id="student-actions" style="margin-top: 1rem; margin-bottom: 1.5rem;">
+                    <button id="view-history-btn" class="btn btn-secondary">Storico Lezioni</button>
+                </div>
+                <hr>
+                <p style="text-align:center;">Seleziona una sede per prenotare una nuova lezione:</p>
+                <div id="location-buttons-container"></div>
+                <div id="admin-actions" style="margin-top: 1.5rem;"></div>
+                <button id="logout-btn" class="btn btn-logout">Esci</button>
+            </div>
+
             <div id="booking-screen" class="screen"><h2 id="booking-location-title"></h2><div id="booking-admin-actions"></div><div class="calendar"><div id="calendar-header"><button id="prev-month-btn" class="btn btn-secondary btn-sm" style="width: auto;">&lt;</button><h3 id="month-year-label"></h3><button id="next-month-btn" class="btn btn-secondary btn-sm" style="width: auto;">&gt;</button></div><div id="calendar-weekdays"><div class="weekday">Lun</div><div class="weekday">Mar</div><div class="weekday">Mer</div><div class="weekday">Gio</div><div class="weekday">Ven</div><div class="weekday">Sab</div><div class="weekday">Dom</div></div><div id="calendar-grid"></div></div><div id="time-slots-container" style="display:none; margin-top: 1.5rem;"><h3>Orari per il <span id="selected-date-label"></span></h3><div id="slots-content"></div></div><button id="back-to-main-btn" class="btn btn-secondary" style="margin-top: 2rem;">Torna Indietro</button></div>
             <div id="schedule-screen" class="screen"><h2>Orari della Settimana</h2><div id="schedule-header"><button id="prev-week-btn" class="btn btn-secondary btn-sm">&lt; Prec.</button><h4 id="week-label" style="margin:0;"></h4><button id="next-week-btn" class="btn btn-secondary btn-sm">Succ. &gt;</button></div><div id="schedule-grid" style="margin-top: 1rem;"></div><button id="back-to-main-from-schedule-btn" class="btn btn-secondary" style="margin-top: 1rem;">Torna Indietro</button></div>
             <div id="admin-tools-screen" class="screen"><h2>Strumenti Admin</h2><p style="text-align: center; font-size: 0.9rem; color: #6c757d;">Usa questi strumenti per cancellazioni di massa. Le azioni sono irreversibili.</p><div class="admin-tool-card"><h4>Svuota Prenotazioni</h4><div class="form-group"><label for="admin-tools-location">Seleziona Sede</label><select id="admin-tools-location"></select></div><hr><div class="form-group"><label for="reset-day-date">Svuota Giorno Singolo</label><input type="date" id="reset-day-date"><button id="reset-day-btn" class="btn btn-danger">Svuota Giorno</button></div><hr><div class="form-group"><label for="reset-period-start">Svuota Periodo Personalizzato</label><input type="date" id="reset-period-start"><input type="date" id="reset-period-end" style="margin-top: 0.5rem;"><button id="reset-period-btn" class="btn btn-danger">Svuota Periodo</button></div></div><button id="back-to-main-from-admin-tools-btn" class="btn btn-secondary">Torna Indietro</button></div>
             <div id="schedule-settings-screen" class="screen"><h2>Impostazioni Calendario</h2><div id="schedule-settings-content"></div><hr><div class="form-group"><label for="new-location-name">Aggiungi una nuova sede</label><input type="text" id="new-location-name" placeholder="Nome nuova sede"><button id="add-location-btn" class="btn btn-secondary" style="margin-top: 0.5rem;">Aggiungi Sede</button></div><button id="save-schedule-settings-btn" class="btn btn-primary">Salva Modifiche</button><button id="back-to-main-from-schedule-settings-btn" class="btn btn-secondary">Torna Indietro</button></div>
             <div id="student-list-screen" class="screen"><h2>Gestione Allievi</h2><button id="create-student-btn" class="btn btn-primary" style="margin-bottom: 1rem;">+ Crea Nuovo Allievo</button><div id="student-list"></div><button id="back-to-main-from-student-list-btn" class="btn btn-secondary" style="margin-top: 1rem;">Torna Indietro</button></div>
             <div id="notifications-screen" class="screen"><h2>Notifiche Studenti</h2><div id="notifications-list"></div><button id="back-to-main-from-notifications-btn" class="btn btn-secondary">Torna Indietro</button></div>
+            
+            <div id="history-screen" class="screen">
+                <h2>Storico Lezioni</h2>
+                <div id="past-bookings-list"></div>
+                <button id="back-to-main-from-history-btn" class="btn btn-secondary" style="margin-top: 1rem;">Torna Indietro</button>
+            </div>
         </main>
     </div>
     <div id="user-modal-overlay" class="modal-overlay"><div class="modal-content"><h4 id="user-modal-title"></h4><div class="form-group"><label for="user-modal-name">Nome Allievo</label><input type="text" id="user-modal-name"></div><div class="form-group"><label for="user-modal-code">Codice Allievo</label><input type="text" id="user-modal-code" autocomplete="off"></div><div class="modal-buttons"><button id="user-modal-cancel" class="btn btn-secondary">Annulla</button><button id="user-modal-save" class="btn btn-primary">Salva</button></div></div></div>
@@ -92,7 +112,7 @@
         state.currentDate.setDate(1);
         const loadingSpinner = document.getElementById('loading-spinner');
         const mainEl = document.querySelector('main');
-        const screens = { 'login-screen': document.getElementById('login-screen'), 'main-screen': document.getElementById('main-screen'), 'schedule-settings-screen': document.getElementById('schedule-settings-screen'), 'student-list-screen': document.getElementById('student-list-screen'), 'booking-screen': document.getElementById('booking-screen'), 'notifications-screen': document.getElementById('notifications-screen'), 'schedule-screen': document.getElementById('schedule-screen'), 'admin-tools-screen': document.getElementById('admin-tools-screen'), };
+        const screens = { 'login-screen': document.getElementById('login-screen'), 'main-screen': document.getElementById('main-screen'), 'schedule-settings-screen': document.getElementById('schedule-settings-screen'), 'student-list-screen': document.getElementById('student-list-screen'), 'booking-screen': document.getElementById('booking-screen'), 'notifications-screen': document.getElementById('notifications-screen'), 'schedule-screen': document.getElementById('schedule-screen'), 'admin-tools-screen': document.getElementById('admin-tools-screen'), 'history-screen': document.getElementById('history-screen') };
 
         const showLoading = (show) => { loadingSpinner.style.display = show ? 'block' : 'none'; };
         const navigateTo = (screenId) => {
@@ -175,10 +195,19 @@
 
         const renderStudentBookingSummary = async () => {
             const summaryDiv = document.getElementById('student-bookings-summary');
+            const counterDisplay = document.getElementById('lesson-counter-display');
             const today = new Date(); today.setHours(0, 0, 0, 0);
             showLoading(true);
             const { data: bookings, error } = await supabase.from('bookings').select('*').eq('user_code', state.currentUser.code).gte('date', formatDate(today)).order('date').order('start_time');
             showLoading(false);
+            
+            const count = bookings ? bookings.length : 0;
+            if (count > 0) {
+                counterDisplay.innerHTML = `<div style="text-align:center; font-size: 1.1rem; color: #333; margin-bottom: 1.5rem; border: 1px solid #eee; padding: 0.75rem; border-radius: 8px; background-color: #f8f9fa;">Hai <strong>${count}</strong> lezioni in programma.</div>`;
+            } else {
+                counterDisplay.innerHTML = '';
+            }
+
             if (error) return console.error("Errore caricamento prenotazioni:", error);
             if (bookings && bookings.length > 0) {
                 summaryDiv.innerHTML = '<h4>Le Tue Prossime Lezioni</h4>' + bookings.map(booking => {
@@ -188,6 +217,43 @@
                 }).join('');
             } else {
                 summaryDiv.innerHTML = "<p style='text-align:center;'>Nessuna lezione futura prenotata.</p>";
+            }
+        };
+        
+        const renderLessonHistory = async () => {
+            const listDiv = document.getElementById('past-bookings-list');
+            listDiv.innerHTML = 'Caricamento...';
+            showLoading(true);
+            const today = new Date();
+            today.setHours(0,0,0,0);
+
+            const { data: bookings, error } = await supabase
+                .from('bookings')
+                .select('*')
+                .eq('user_code', state.currentUser.code)
+                .lt('date', formatDate(today))
+                .order('date', { ascending: false });
+            
+            showLoading(false);
+            if (error) {
+                console.error("Errore caricamento storico:", error);
+                listDiv.innerHTML = '<p>Impossibile caricare lo storico delle lezioni.</p>';
+                return;
+            }
+
+            if (bookings && bookings.length > 0) {
+                listDiv.innerHTML = bookings.map(booking => {
+                    const lessonDate = new Date(`${booking.date}T00:00:00`);
+                    return `<div class="booked-slot" style="background-color: #f8f9fa; justify-content: flex-start;">
+                                <span style="text-align: left;">
+                                    <strong>${lessonDate.toLocaleDateString('it-IT', {weekday: 'long', day: 'numeric', month: 'long', year: 'numeric'})}</strong>
+                                    <br>
+                                    <small>Ore: ${formatTime(booking.start_time)} - ${formatTime(booking.end_time)} (${booking.location})</small>
+                                </span>
+                            </div>`;
+                }).join('');
+            } else {
+                listDiv.innerHTML = "<p style='text-align:center;'>Nessuna lezione passata trovata.</p>";
             }
         };
 
@@ -505,6 +571,11 @@
             if (id === 'login-btn') await login();
             if (id === 'logout-btn') logout();
             if (id.startsWith('back-to-main')) navigateTo('main-screen');
+
+            if (id === 'view-history-btn') {
+                await renderLessonHistory();
+                navigateTo('history-screen');
+            }
 
             if (state.currentUser?.role === 'admin') {
                 if (id === 'manage-students-btn') { await renderStudentList(); navigateTo('student-list-screen'); }
