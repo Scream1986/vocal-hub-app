@@ -16,12 +16,13 @@
         h2, h3, h4 { margin-top: 0; text-align: center; }
         .form-group { margin-bottom: 1rem; }
         label { display: block; margin-bottom: 0.5rem; font-weight: 500; }
-        input[type="text"], input[type="date"], input[type="time"], textarea, select { width: 100%; padding: 0.75rem; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; }
+        input[type="text"], input[type="date"], input[type="time"], input[type="number"], textarea, select { width: 100%; padding: 0.75rem; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; }
         textarea { min-height: 80px; }
         .btn { display: block; width: 100%; padding: 0.75rem; border: none; border-radius: 4px; font-size: 1rem; font-weight: bold; cursor: pointer; text-align: center; text-decoration: none; margin-top: 0.5rem; }
         .btn-primary { background-color: var(--button-primary-bg); color: var(--button-primary-text); }
         .btn-secondary { background-color: var(--secondary-color); color: white; }
         .btn-danger { background-color: var(--danger-color); color: white; }
+        .btn-success { background-color: var(--success-color); color: white; }
         .btn-sm { padding: 0.4rem 0.8rem; font-size: 0.8rem; }
         .btn-logout { background-color: var(--danger-color); color: white; margin-top: 1rem; }
         #loading-spinner { display: none; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: 2000; background-color: rgba(255,255,255,0.8); padding: 2rem; border-radius: 8px; box-shadow: 0 5px 15px rgba(0,0,0,0.2); font-weight: bold; }
@@ -66,8 +67,10 @@
         .schedule-day-column h5 { margin: -0.5rem -0.5rem 0.5rem -0.5rem; padding: 0.5rem; background-color: #6c757d; color: white; border-radius: 4px 4px 0 0; }
         .schedule-booking { border-left: 3px solid var(--button-primary-bg); padding: 0.5rem; margin-bottom: 0.5rem; background-color: #f8f9fa; font-size: 0.9rem; }
         .admin-tool-card { background: #fff; padding: 1rem; border: 1px solid #ddd; border-radius: 8px; margin-bottom: 1.5rem; }
-        /* ## NUOVO ## Stile per i campi orario nelle impostazioni */
         .time-inputs-container { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-top: 1rem; align-items: center; }
+        #block-modal-form .form-group { display: flex; align-items: center; gap: 0.5rem; }
+        #block-modal-form .form-group label { flex-shrink: 0; margin-bottom: 0; }
+        #block-modal-form .form-group input[type="number"] { width: 70px; }
     </style>
 </head>
 <body>
@@ -109,6 +112,41 @@
     </div>
     <div id="user-modal-overlay" class="modal-overlay"><div class="modal-content"><h4 id="user-modal-title"></h4><div class="form-group"><label for="user-modal-name">Nome Allievo</label><input type="text" id="user-modal-name"></div><div class="form-group"><label for="user-modal-code">Codice Allievo</label><input type="text" id="user-modal-code" autocomplete="off"></div><div class="modal-buttons"><button id="user-modal-cancel" class="btn btn-secondary">Annulla</button><button id="user-modal-save" class="btn btn-primary">Salva</button></div></div></div>
 
+    <div id="block-modal-overlay" class="modal-overlay">
+        <div class="modal-content">
+            <h4 id="block-modal-title">Gestisci Blocco Orario</h4>
+            <p id="block-modal-info" style="font-size: 0.9rem; color: #666;"></p>
+            <form id="block-modal-form">
+                <div class="form-group">
+                    <label for="block-end-time">Fino alle ore:</label>
+                    <input type="time" id="block-end-time" step="900" required>
+                </div>
+                <hr>
+                <p style="font-weight: 500;">Applica questa regola:</p>
+                <div class="form-group">
+                    <input type="radio" id="recurrence-once" name="recurrence" value="once" checked>
+                    <label for="recurrence-once">Solo per questo giorno</label>
+                </div>
+                <div class="form-group">
+                    <input type="radio" id="recurrence-weekly" name="recurrence" value="weekly">
+                    <label for="recurrence-weekly">Per</label>
+                    <input type="number" id="recurrence-weeks" min="1" value="4" style="margin: 0 0.5rem;">
+                    <label for="recurrence-weeks">settimane</label>
+                </div>
+                <div class="form-group">
+                    <input type="radio" id="recurrence-forever" name="recurrence" value="forever">
+                    <label for="recurrence-forever">Per sempre</label>
+                </div>
+                <div id="block-modal-buttons" class="modal-buttons">
+                    <button type="button" id="block-modal-cancel" class="btn btn-secondary">Annulla</button>
+                    <button type="submit" id="block-modal-unblock" class="btn btn-success">Sblocca Orario</button>
+                    <button type="submit" id="block-modal-block" class="btn btn-danger">Blocca Orario</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+
     <script>
     document.addEventListener('DOMContentLoaded', () => {
         const supabaseUrl = 'https://esxpbpxdhqijsomqmrvr.supabase.co';
@@ -120,6 +158,14 @@
         const loadingSpinner = document.getElementById('loading-spinner');
         const mainEl = document.querySelector('main');
         const screens = { 'login-screen': document.getElementById('login-screen'), 'main-screen': document.getElementById('main-screen'), 'schedule-settings-screen': document.getElementById('schedule-settings-screen'), 'student-list-screen': document.getElementById('student-list-screen'), 'booking-screen': document.getElementById('booking-screen'), 'notifications-screen': document.getElementById('notifications-screen'), 'schedule-screen': document.getElementById('schedule-screen'), 'admin-tools-screen': document.getElementById('admin-tools-screen'), 'history-screen': document.getElementById('history-screen') };
+        const blockModal = {
+            overlay: document.getElementById('block-modal-overlay'),
+            info: document.getElementById('block-modal-info'),
+            endTime: document.getElementById('block-end-time'),
+            form: document.getElementById('block-modal-form'),
+            unblockBtn: document.getElementById('block-modal-unblock'),
+            blockBtn: document.getElementById('block-modal-block')
+        };
 
         const showLoading = (show) => { loadingSpinner.style.display = show ? 'block' : 'none'; };
         const navigateTo = (screenId) => {
@@ -160,17 +206,15 @@
 
         const loadInitialData = async () => {
             showLoading(true);
-            // ## MODIFICATO ##: Seleziono tutti i campi, inclusi i nuovi orari
             const { data, error } = await supabase.from('schedule_config').select('*');
             showLoading(false);
             if (error) return console.error("Errore caricamento config calendario:", error);
             state.scheduleConfig = {};
             if (data) data.forEach(item => {
-                // ## MODIFICATO ##: Salvo l'intero oggetto di configurazione per la sede
                 state.scheduleConfig[item.location] = {
                     work_days: item.work_days || [],
-                    start_time: item.start_time || '15:00:00', // Valore di fallback
-                    end_time: item.end_time || '21:00:00' // Valore di fallback
+                    start_time: item.start_time || '15:00:00',
+                    end_time: item.end_time || '21:00:00'
                 };
             });
             renderLocationButtons();
@@ -314,7 +358,6 @@
         const renderTimeSlots = async (dateStr, isPolling = false) => {
             if (state.currentScreen !== 'booking-screen' || !dateStr) return;
             state.selectedDate = new Date(dateStr + 'T00:00:00');
-            // ## NUOVO ##: Recupero la configurazione specifica della sede corrente
             const locationConfig = state.scheduleConfig[state.currentLocation];
             const endOfDayTime = new Date(`${dateStr}T${locationConfig.end_time}`);
 
@@ -323,42 +366,92 @@
                 document.querySelector(`.calendar-day[data-date="${dateStr}"]`)?.classList.add('selected');
                 document.getElementById('selected-date-label').textContent = state.selectedDate.toLocaleDateString('it-IT', { weekday: 'long', day: 'numeric', month: 'long' });
                 document.getElementById('time-slots-container').style.display = 'block';
-                if (state.currentUser.role === 'admin') {
-                    document.getElementById('booking-admin-actions').innerHTML = `<div class="day-week-controls"><button id="block-day-btn" class="btn btn-danger">Blocca Giorno</button><button id="unblock-day-btn" class="btn btn-success">Sblocca Giorno</button><button id="block-week-btn" class="btn btn-danger">Blocca Settimana (TUTTE LE SEDI)</button><button id="unblock-week-btn" class="btn btn-success">Sblocca Settimana (TUTTE LE SEDI)</button></div>`;
+                 if (state.currentUser.role === 'admin') {
+                    document.getElementById('booking-admin-actions').innerHTML = `<div class="day-week-controls"><button id="block-day-btn" class="btn btn-danger">Blocca Intero Giorno</button><button id="unblock-day-btn" class="btn btn-success">Sblocca Intero Giorno</button></div>`;
                 } else {
                     document.getElementById('booking-admin-actions').innerHTML = '';
                 }
             }
             const slotsContent = document.getElementById('slots-content');
             if (!isPolling) slotsContent.innerHTML = 'Aggiornamento...';
-            const { data: bookings, errorB } = await supabase.from('bookings').select('*, users(name, code)').eq('date', dateStr).eq('location', state.currentLocation);
-            const { data: blocked, errorL } = await supabase.from('blocked_slots').select('*').eq('date', dateStr).eq('location', state.currentLocation);
-            if (errorB || errorL) return;
-            if (state.currentUser.role === 'admin') {
-                const generateTimeSlots = (start, end, interval) => Array.from({length: (end - start) * (60 / interval)}, (_, i) => { const d = new Date(0); d.setUTCHours(start, i * interval); return d.toISOString().substring(11, 16); });
-                // ## MODIFICATO ##: Uso gli orari dalla configurazione
-                const startHour = parseInt(locationConfig.start_time.split(':')[0]);
-                const endHour = parseInt(locationConfig.end_time.split(':')[0]);
-                const allSlots = generateTimeSlots(startHour, endHour, 15);
+            
+            const selectedDayOfWeek = state.selectedDate.getDay();
+            const [bookingsRes, rulesRes] = await Promise.all([
+                supabase.from('bookings').select('*, users(name, code)').eq('date', dateStr).eq('location', state.currentLocation),
+                supabase.from('availability_rules').select('*').eq('location', state.currentLocation).eq('day_of_week', selectedDayOfWeek).lte('start_date', dateStr)
+            ]);
+            
+            if (bookingsRes.error || rulesRes.error) return console.error("Errore caricamento dati:", bookingsRes.error, rulesRes.error);
 
-                slotsContent.innerHTML = '<div class="admin-time-grid">' + allSlots.map(slot => {
-                    let status = 'free', tooltip = `Orario: ${slot}, Libero`;
-                    const booking = bookings.find(b => slot >= formatTime(b.start_time) && slot < formatTime(b.end_time));
-                    if (booking) { status = 'booked'; tooltip = `Occupato da: ${booking.users.name}`; }
-                    else if (blocked.some(b => slot >= formatTime(b.start_time) && slot < formatTime(b.end_time))) { status = 'blocked'; tooltip = 'Bloccato'; }
-                    return `<div class="time-slot ${status}" data-time="${slot}" title="${tooltip}" data-booking='${booking ? JSON.stringify(booking) : null}'>${slot}</div>`;
-                }).join('') + '</div>';
+            const bookings = bookingsRes.data;
+            const rules = rulesRes.data.filter(rule => !rule.end_date || new Date(rule.end_date) >= state.selectedDate);
+
+            const startHour = parseInt(locationConfig.start_time.split(':')[0]);
+            const endHour = parseInt(locationConfig.end_time.split(':')[0]);
+            const slotsMap = new Map();
+            for (let h = startHour; h < endHour; h++) {
+                for (let m = 0; m < 60; m += 15) {
+                    const time = `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`;
+                    slotsMap.set(time, { status: 'free', booking: null });
+                }
+            }
+
+            const applyRule = (ruleType, startTime, endTime) => {
+                for (const [time, slot] of slotsMap.entries()) {
+                    if (time >= startTime && time < endTime) {
+                        slot.status = (ruleType === 'BLOCK') ? 'blocked' : 'free';
+                    }
+                }
+            };
+            rules.filter(r => r.rule_type === 'BLOCK').forEach(r => applyRule('BLOCK', formatTime(r.start_time), formatTime(r.end_time)));
+            rules.filter(r => r.rule_type === 'UNBLOCK').forEach(r => applyRule('UNBLOCK', formatTime(r.start_time), formatTime(r.end_time)));
+
+            bookings.forEach(booking => {
+                for (const [time, slot] of slotsMap.entries()) {
+                    if (time >= formatTime(booking.start_time) && time < formatTime(booking.end_time)) {
+                        slot.status = 'booked';
+                        slot.booking = booking;
+                    }
+                }
+            });
+
+            if (state.currentUser.role === 'admin') {
+                let adminHtml = '<div class="admin-time-grid">';
+                for(const [time, slot] of slotsMap.entries()){
+                    const tooltip = slot.status === 'booked' ? `Occupato da: ${slot.booking.users.name}` : `Stato: ${slot.status}`;
+                    adminHtml += `<div class="time-slot ${slot.status}" data-time="${time}" title="${tooltip}" data-booking='${slot.booking ? JSON.stringify(slot.booking) : null}'>${time}</div>`;
+                }
+                adminHtml += '</div>';
+                slotsContent.innerHTML = adminHtml;
             } else {
-                const allEvents = [...bookings, ...blocked].sort((a,b) => a.start_time.localeCompare(b.start_time));
-                const isTimespanFree = (start, end) => !allEvents.some(event => new Date(`${dateStr}T${event.start_time}`) < end && new Date(`${dateStr}T${event.end_time}`) > start);
+                 const isTimespanFree = (start, end) => {
+                    const startTime = start.toTimeString().substring(0, 5);
+                    const endTime = end.toTimeString().substring(0, 5);
+                    for (let [time, slot] of slotsMap.entries()) {
+                        if (time >= startTime && time < endTime && slot.status !== 'free') {
+                            return false;
+                        }
+                    }
+                    return true;
+                };
+
                 const getAvailableSlots = (duration) => {
                     const available = new Set(), now = new Date();
-                    // ## MODIFICATO ##: Inizio dal primo orario disponibile della sede
                     const potentialStarts = new Set([formatTime(locationConfig.start_time)]);
-                    allEvents.forEach(e => potentialStarts.add(formatTime(e.end_time)));
+                    
+                    for (const [time, slot] of slotsMap.entries()) {
+                        if (slot.status === 'free') {
+                           const prevTime = new Date(`${dateStr}T${time}`);
+                           prevTime.setMinutes(prevTime.getMinutes() - 15);
+                           const prevTimeStr = prevTime.toTimeString().substring(0, 5);
+                           if (!slotsMap.has(prevTimeStr) || slotsMap.get(prevTimeStr).status !== 'free') {
+                               potentialStarts.add(time);
+                           }
+                        }
+                    }
+
                     potentialStarts.forEach(timeStr => {
                         const start = new Date(`${dateStr}T${timeStr}`);
-                         // ## MODIFICATO ##: Controllo che lo slot finisca prima dell'orario di chiusura
                         if ((start - now) / 36e5 > 12 && start.getTime() + duration * 60000 <= endOfDayTime.getTime() && isTimespanFree(start, new Date(start.getTime() + duration * 60000))) {
                             available.add(timeStr);
                         }
@@ -378,298 +471,342 @@
             }
         };
 
-        const renderStudentList = async () => {
-            const listDiv = document.getElementById('student-list');
-            listDiv.innerHTML = 'Caricamento...'; 
-            showLoading(true);
-
-            const { data: users, error } = await supabase.from('users').select('*').eq('role', 'student').order('name');
-            const { data: pastBookings, error: bookingsError } = await supabase.from('bookings').select('user_code').lt('date', formatDate(new Date()));
+        const openBlockModal = (startTime, isBlocked) => {
+            blockModal.form.reset();
+            blockModal.form.dataset.startTime = startTime;
+            blockModal.info.textContent = `Giorno: ${state.selectedDate.toLocaleDateString('it-IT', {weekday: 'long'})} | Orario inizio: ${startTime}`;
             
-            showLoading(false);
-            if (error || bookingsError) return console.error("Errore caricamento allievi o lezioni:", error, bookingsError);
+            const nextSlotTime = new Date(`${formatDate(state.selectedDate)}T${startTime}`);
+            nextSlotTime.setMinutes(nextSlotTime.getMinutes() + 15);
+            blockModal.endTime.value = nextSlotTime.toTimeString().substring(0, 5);
 
-            const lessonsCountMap = new Map();
-            if (pastBookings) {
-                for (const booking of pastBookings) {
-                    lessonsCountMap.set(booking.user_code, (lessonsCountMap.get(booking.user_code) || 0) + 1);
-                }
-            }
+            blockModal.blockBtn.style.display = isBlocked ? 'none' : 'inline-block';
+            blockModal.unblockBtn.style.display = isBlocked ? 'inline-block' : 'none';
 
-            listDiv.innerHTML = users.map(student => {
-                const lessonsDone = lessonsCountMap.get(student.code) || 0;
-                return `
-                <div class="student-list-item">
-                    <div class="student-header">
-                        <div class="student-info">
-                            ${student.name}<br><small style="color: #6c757d;">Codice: ${student.code}</small>
-                        </div>
-                        <div class="student-actions">
-                            <button class="btn btn-secondary btn-sm btn-toggle-details" data-target="details-${student.id}">Dettagli</button>
-                        </div>
-                    </div>
-                    <div class="student-details" id="details-${student.id}">
-                        <div class="student-stats">
-                            <div class="stat-item"><span>${lessonsDone}</span>Lezioni Svolte</div>
-                            <div class="stat-item"><span>${student.changes_used ?? 0} / ${student.changes_allowed ?? 0}</span>Cambi Usati</div>
-                        </div>
-                        <div class="form-group">
-                            <label for="notes-${student.id}">Note Private</label>
-                            <textarea id="notes-${student.id}">${student.admin_notes || ''}</textarea>
-                        </div>
-                        <div class="student-actions" style="justify-content: flex-end; display: flex;">
-                             <button class="btn btn-primary btn-sm btn-save-notes" data-id="${student.id}" style="width: auto;">Salva Note</button>
-                             <button class="btn btn-secondary btn-sm btn-edit-student" data-id="${student.id}" data-name="${student.name}" data-code="${student.code}">Modifica</button>
-                             <button class="btn btn-danger btn-sm btn-delete-student" data-id="${student.id}" data-name="${student.name}">Elimina</button>
-                        </div>
-                    </div>
-                </div>`;
-            }).join('');
+            blockModal.overlay.style.display = 'flex';
         };
 
-        const showUserModal = (isEdit, userData = {}) => {
-            document.getElementById('user-modal-title').textContent = isEdit ? 'Modifica Allievo' : 'Crea Nuovo Allievo';
-            document.getElementById('user-modal-name').value = userData.name || '';
-            document.getElementById('user-modal-code').value = userData.code || '';
-            document.getElementById('user-modal-save').onclick = () => handleSaveUser(userData.id);
-            document.getElementById('user-modal-overlay').style.display = 'flex';
-        };
-        const handleSaveUser = async (userId) => {
-            const name = document.getElementById('user-modal-name').value.trim();
-            const code = document.getElementById('user-modal-code').value.toUpperCase().trim();
-            if (!name || !code) return alert("Nome e Codice non possono essere vuoti.");
-            showLoading(true);
-            const { error } = userId ? await supabase.from('users').update({ name, code }).eq('id', userId) : await supabase.from('users').insert({ name, code, role: 'student' });
-            showLoading(false);
-            if (error) return alert("Errore: il codice potrebbe essere già in uso.");
-            alert(`Allievo "${name}" salvato.`);
-            await renderStudentList();
-            document.getElementById('user-modal-overlay').style.display = 'none';
-        };
-        const deleteUser = async (userId, userName) => {
-            if (!confirm(`Sei sicuro di voler eliminare "${userName}"? Verranno cancellate anche tutte le sue prenotazioni.`)) return;
-            showLoading(true);
-            const { error } = await supabase.from('users').delete().eq('id', userId);
-            showLoading(false);
-            if (error) return alert("Errore durante l'eliminazione.");
-            alert("Allievo eliminato.");
-            await renderStudentList();
-        };
+        const handleSaveBlockRule = async (e) => {
+            e.preventDefault();
+            const ruleType = e.submitter.id === 'block-modal-block' ? 'BLOCK' : 'UNBLOCK';
 
-        const renderScheduleSettings = async () => {
-            state.locationsToDelete = [];
-            const contentDiv = document.getElementById('schedule-settings-content');
-            contentDiv.innerHTML = 'Caricamento...';
-            showLoading(true);
-            // ## MODIFICATO ##: La chiamata a `loadInitialData` ha già caricato tutto, qui usiamo i dati in `state`
-            const allConfigs = Object.entries(state.scheduleConfig);
-            showLoading(false);
-            contentDiv.innerHTML = '';
-            allConfigs.forEach(([locationName, config]) => {
-                addLocationToDOM(locationName, config.work_days, config.start_time, config.end_time);
-            });
-        };
-        
-        // ## MODIFICATO ##: La funzione ora accetta anche gli orari per popolare i campi
-        const addLocationToDOM = (locationName, workDays = [], startTime = '15:00', endTime = '21:00') => {
-            const contentDiv = document.getElementById('schedule-settings-content');
-            const daysOfWeek = ['Domenica', 'Lunedì', 'Martedì', 'Mercoledì', 'Giovedì', 'Venerdì', 'Sabato'];
-            let locationHtml = `<div class="admin-tool-card" data-location-block="${locationName}">
-                <div style="display:flex; justify-content:space-between; align-items:center;">
-                    <h4 style="margin:0;">${locationName}</h4>
-                    <button class="btn btn-danger btn-sm btn-remove-location" data-location="${locationName}">&times; Rimuovi</button>
-                </div>
-                <div class="days-checkboxes" data-location="${locationName}" style="display:grid; grid-template-columns:repeat(auto-fit, minmax(100px, 1fr)); gap:0.5rem; margin-top:1rem;">`;
-            for (let i = 1; i <= 6; i++) {
-                const isChecked = workDays.includes(i);
-                locationHtml += `<div><input type="checkbox" id="${locationName}-${i}" value="${i}" ${isChecked ? 'checked' : ''}><label for="${locationName}-${i}" style="margin-left:0.25rem;">${daysOfWeek[i]}</label></div>`;
-            }
-            locationHtml += `</div>
-            <!-- ## NUOVO ##: Campi per la selezione dell'orario -->
-            <div class="time-inputs-container">
-                <div>
-                    <label for="start-time-${locationName}">Orario Inizio</label>
-                    <input type="time" id="start-time-${locationName}" value="${formatTime(startTime)}" step="900">
-                </div>
-                <div>
-                    <label for="end-time-${locationName}">Orario Fine</label>
-                    <input type="time" id="end-time-${locationName}" value="${formatTime(endTime)}" step="900">
-                </div>
-            </div>
-            </div>`;
-            contentDiv.insertAdjacentHTML('beforeend', locationHtml);
-        };
-
-        const saveScheduleSettings = async () => {
-            showLoading(true);
-            const promises = [];
-            if (state.locationsToDelete.length > 0) {
-                promises.push(supabase.from('schedule_config').delete().in('location', state.locationsToDelete));
-            }
-            const updates = [];
-            document.querySelectorAll('[data-location-block]').forEach(div => {
-                const location = div.dataset.locationBlock;
-                const work_days = Array.from(div.querySelectorAll('.days-checkboxes input:checked')).map(box => parseInt(box.value));
-                // ## NUOVO ##: Leggo i valori degli orari dai nuovi campi
-                const start_time = document.getElementById(`start-time-${location}`).value;
-                const end_time = document.getElementById(`end-time-${location}`).value;
-                updates.push({ location, work_days, start_time, end_time });
-            });
-            if (updates.length > 0) {
-                promises.push(supabase.from('schedule_config').upsert(updates, { onConflict: 'location' }));
-            }
-            const results = await Promise.all(promises);
-            showLoading(false);
-            if (results.some(res => res.error)) { alert("Errore nel salvataggio."); console.error(results.map(r=>r.error)); } 
-            else { alert("Impostazioni salvate."); await loadInitialData(); navigateTo('main-screen'); }
-        };
-
-        const removeLocationFromDOM = (locationToRemove) => {
-            if (confirm(`Sei sicuro di voler rimuovere la sede "${locationToRemove}"? La modifica sarà definitiva solo dopo aver cliccato 'Salva Modifiche'.`)) {
-                if (!state.locationsToDelete.includes(locationToRemove)) state.locationsToDelete.push(locationToRemove);
-                document.querySelector(`[data-location-block="${locationToRemove}"]`)?.remove();
-            }
-        };
-
-        const renderNotifications = async () => {
-            const listDiv = document.getElementById('notifications-list');
-            showLoading(true);
-            const { data: notifications, error: notifError } = await supabase.from('notifications').select('*').eq('status', 'pending');
-            if (notifError || !notifications || notifications.length === 0) {
-                listDiv.innerHTML = '<p>Nessuna nuova notifica.</p>';
-                showLoading(false);
+            const startTime = blockModal.form.dataset.startTime;
+            const endTime = blockModal.endTime.value;
+            if (endTime <= startTime) {
+                alert("L'orario di fine deve essere successivo a quello di inizio.");
                 return;
             }
-            const bookingIds = notifications.map(n => n.booking_id).filter(id => id);
-            let bookingsMap = new Map();
-            if(bookingIds.length > 0) {
-                const { data: bookings, error: bookError } = await supabase.from('bookings').select('*').in('id', bookingIds);
-                if (bookError) console.error(bookError);
-                else bookingsMap = new Map(bookings.map(b => [b.id, b]));
+
+            const recurrence = document.querySelector('input[name="recurrence"]:checked').value;
+            const startDate = new Date(state.selectedDate);
+            let endDate = null;
+
+            if (recurrence === 'once') {
+                endDate = new Date(startDate);
+            } else if (recurrence === 'weekly') {
+                const weeks = parseInt(document.getElementById('recurrence-weeks').value);
+                if (isNaN(weeks) || weeks < 1) return alert("Numero di settimane non valido.");
+                endDate = new Date(startDate);
+                endDate.setDate(startDate.getDate() + (weeks * 7) - 1);
             }
-            showLoading(false);
-            listDiv.innerHTML = notifications.map(n => {
-                const booking = n.booking_id ? bookingsMap.get(n.booking_id) : null;
-                let bookingDetails = '<i>Info sulla lezione originale non disponibili.</i>';
-                if (booking) {
-                    bookingDetails = `Sede: ${booking.location}<br>Giorno: ${new Date(booking.date + 'T00:00:00').toLocaleDateString('it-IT')}<br>Orario: ${formatTime(booking.start_time)} - ${formatTime(booking.end_time)}`;
-                }
-                return `<div class="notification-item" data-notification-id="${n.id}" data-booking-id="${n.booking_id || ''}"><p>Da: <strong>${n.student_name}</strong></p><p>Richiesta: <em>"${n.message}"</em></p><div class="notification-details">${bookingDetails}</div><div class="notification-actions"><button class="btn btn-primary btn-sm btn-reply">Rispondi</button><button class="btn btn-secondary btn-sm btn-mark-read">Segna come Letta</button>${booking ? `<button class="btn btn-danger btn-sm btn-cancel-booking">Cancella Lezione</button>` : ''}</div></div>`;
-            }).join('');
-        };
-        
-        const renderSchedule = async () => {
-            const grid = document.getElementById('schedule-grid'), label = document.getElementById('week-label');
-            grid.innerHTML = 'Caricamento...';
-            const current = new Date(state.scheduleCurrentDate);
-            const dayOfWeek = current.getDay();
-            const diff = current.getDate() - dayOfWeek + (dayOfWeek === 0 ? -6 : 1);
-            const weekStart = new Date(current.setDate(diff));
-            const weekEnd = new Date(weekStart); weekEnd.setDate(weekStart.getDate() + 5);
-            label.textContent = `${weekStart.toLocaleDateString('it-IT', {day:'2-digit', month:'2-digit'})} - ${weekEnd.toLocaleDateString('it-IT', {day:'2-digit', month:'2-digit', year:'numeric'})}`;
-            showLoading(true);
-            const { data: bookings, error } = await supabase.from('bookings').select('*, users(name)').gte('date', formatDate(weekStart)).lte('date', formatDate(weekEnd)).order('date').order('start_time');
-            showLoading(false);
-            if(error) return console.error(error);
-            const bookingsByDay = {};
-            for(let i=0; i<6; i++) { const d = new Date(weekStart); d.setDate(weekStart.getDate() + i); bookingsByDay[formatDate(d)] = []; }
-            bookings.forEach(b => { if(bookingsByDay[b.date]) bookingsByDay[b.date].push(b); });
-            const dayNames = ['Lunedì', 'Martedì', 'Mercoledì', 'Giovedì', 'Venerdì', 'Sabato'];
-            grid.innerHTML = dayNames.map((name, i) => {
-                const dayDate = new Date(weekStart); dayDate.setDate(weekStart.getDate() + i);
-                const dayBookings = bookingsByDay[formatDate(dayDate)];
-                let bookingsHtml = '<p>Nessuna lezione.</p>';
-                if(dayBookings.length > 0) {
-                    bookingsHtml = dayBookings.map(b => `<div class="schedule-booking"><strong>${formatTime(b.start_time)}</strong> - ${b.users.name} <small>(${b.location})</small></div>`).join('');
-                }
-                return `<div class="schedule-day-column"><h5>${name} ${dayDate.getDate()}</h5>${bookingsHtml}</div>`;
-            }).join('');
-        };
 
-        const renderAdminTools = () => {
-            const select = document.getElementById('admin-tools-location');
-            select.innerHTML = Object.keys(state.scheduleConfig).map(loc => `<option value="${loc}">${loc}</option>`).join('');
-        };
-
-        const internalBlockDay = async (dateStr, location) => {
-            const { data: bookings } = await supabase.from('bookings').select('*, users(name, code)').eq('date', dateStr).eq('location', location);
-            if (bookings && bookings.length > 0) {
-                const bookingIds = bookings.map(b => b.id);
-                const notifications = bookings.map(b => ({ student_code: b.users.code, student_name: b.users.name, message: `La tua lezione del ${dateStr} alle ${formatTime(b.start_time)} è stata annullata per indisponibilità. Questa notifica è automatica, contatta l'insegnante per dettagli.`, booking_id: null, status: 'replied', reply_message: `La tua lezione del ${dateStr} è stata annullata per indisponibilità. Contatta l'insegnante per riprogrammare.`}));
-                await supabase.from('bookings').delete().in('id', bookingIds);
-                await supabase.from('notifications').insert(notifications);
-            }
-            await supabase.from('blocked_slots').delete().eq('date', dateStr).eq('location', location);
-            // ## MODIFICATO ##: Blocca l'intera giornata in base agli orari della sede
-            const locationConfig = state.scheduleConfig[location];
-            await supabase.from('blocked_slots').insert({ date: dateStr, location, start_time: locationConfig.start_time, end_time: locationConfig.end_time });
-        };
-        const internalUnblockDay = async (dateStr, location) => {
-            await supabase.from('blocked_slots').delete().eq('date', dateStr).eq('location', location);
-        };
-
-        const assignPackage = async (startDate, location) => {
-            const studentCode = prompt("Inserisci il codice dell'allievo:").toUpperCase();
-            if(!studentCode) return;
-            const { data: student } = await supabase.from('users').select('code').eq('code', studentCode).single();
-            if (!student) return alert('Codice allievo non trovato.');
-            
-            const numLessons = parseInt(prompt("Quante lezioni nel pacchetto?"));
-            if (isNaN(numLessons) || numLessons < 1) return alert("Numero lezioni non valido.");
-            
-            const duration = parseInt(prompt("Durata di ogni lezione (45 o 60 min)?"));
-            if (![45, 60].includes(duration)) return alert("Durata non valida.");
-
-            const changes = parseInt(prompt("Quanti cambi lezione consentiti per questo pacchetto?"));
-            if (isNaN(changes) || changes < 0) return alert("Numero cambi non valido.");
+            const newRule = {
+                location: state.currentLocation,
+                rule_type: ruleType,
+                day_of_week: startDate.getDay(),
+                start_time: startTime,
+                end_time: endTime,
+                start_date: formatDate(startDate),
+                end_date: endDate ? formatDate(endDate) : null
+            };
 
             showLoading(true);
-            const locationConfig = state.scheduleConfig[location];
-            const endOfDayTime = new Date(`${formatDate(new Date())}T${locationConfig.end_time}`);
+            const { error } = await supabase.from('availability_rules').insert(newRule);
+            showLoading(false);
 
-            let searchDate = new Date(startDate), lessonsBooked = [], attempts = 0;
-            while(lessonsBooked.length < numLessons && attempts < 365) {
-                if (isDayOfWeekAvailable(searchDate, location)) {
-                    const dateStr = formatDate(searchDate);
-                    const { data: bookings, errorB } = await supabase.from('bookings').select('start_time, end_time').eq('date', dateStr).eq('location', location);
-                    const { data: blocked, errorL } = await supabase.from('blocked_slots').select('start_time, end_time').eq('date', dateStr).eq('location', location);
-                    if (!errorB && !errorL) {
-                        const allEvents = [...bookings, ...blocked];
-                        const potentialStarts = new Set([formatTime(locationConfig.start_time)]);
-                        allEvents.forEach(e => potentialStarts.add(formatTime(e.end_time)));
-                        for (const timeStr of Array.from(potentialStarts).sort()) {
-                            const start = new Date(`${dateStr}T${timeStr}`);
-                            const end = new Date(start.getTime() + duration * 60000);
-                            const isFree = !allEvents.some(event => new Date(`${dateStr}T${event.start_time}`) < end && new Date(`${dateStr}T${event.end_time}`) > start);
-                            if (end <= new Date(`${dateStr}T${locationConfig.end_time}`) && isFree) {
-                                lessonsBooked.push({ user_code: student.code, location, date: dateStr, start_time: timeStr, end_time: end.toTimeString().substring(0,8) });
-                                break; 
-                            }
-                        }
+            if(error) {
+                alert("Errore nel salvataggio della regola.");
+                console.error(error);
+            } else {
+                blockModal.overlay.style.display = 'none';
+                await renderTimeSlots(formatDate(state.selectedDate));
+            }
+        };
+
+        const studentListAndSettingsFunctions = () => {
+             const renderStudentList = async () => {
+                const listDiv = document.getElementById('student-list');
+                listDiv.innerHTML = 'Caricamento...'; 
+                showLoading(true);
+
+                const { data: users, error } = await supabase.from('users').select('*').eq('role', 'student').order('name');
+                const { data: pastBookings, error: bookingsError } = await supabase.from('bookings').select('user_code').lt('date', formatDate(new Date()));
+                
+                showLoading(false);
+                if (error || bookingsError) return console.error("Errore caricamento allievi o lezioni:", error, bookingsError);
+
+                const lessonsCountMap = new Map();
+                if (pastBookings) {
+                    for (const booking of pastBookings) {
+                        lessonsCountMap.set(booking.user_code, (lessonsCountMap.get(booking.user_code) || 0) + 1);
                     }
                 }
-                const bookedOnThisDate = lessonsBooked.length > 0 && lessonsBooked[lessonsBooked.length-1].date === formatDate(searchDate);
-                searchDate.setDate(searchDate.getDate() + (bookedOnThisDate ? 7 : 1));
-                attempts++;
-            }
-            if(lessonsBooked.length < numLessons) {
-                showLoading(false);
-                return alert(`Impossibile trovare slot liberi per tutte le ${numLessons} lezioni. Sono state trovate solo ${lessonsBooked.length} disponibilità.`);
-            }
 
-            const { error: insertError } = await supabase.from('bookings').insert(lessonsBooked);
-            if (!insertError) {
-                 await supabase.from('users').update({ changes_allowed: changes, changes_used: 0 }).eq('code', studentCode);
-            }
+                listDiv.innerHTML = users.map(student => {
+                    const lessonsDone = lessonsCountMap.get(student.code) || 0;
+                    return `
+                    <div class="student-list-item">
+                        <div class="student-header">
+                            <div class="student-info">
+                                ${student.name}<br><small style="color: #6c757d;">Codice: ${student.code}</small>
+                            </div>
+                            <div class="student-actions">
+                                <button class="btn btn-secondary btn-sm btn-toggle-details" data-target="details-${student.id}">Dettagli</button>
+                            </div>
+                        </div>
+                        <div class="student-details" id="details-${student.id}">
+                            <div class="student-stats">
+                                <div class="stat-item"><span>${lessonsDone}</span>Lezioni Svolte</div>
+                                <div class="stat-item"><span>${student.changes_used ?? 0} / ${student.changes_allowed ?? 0}</span>Cambi Usati</div>
+                            </div>
+                            <div class="form-group">
+                                <label for="notes-${student.id}">Note Private</label>
+                                <textarea id="notes-${student.id}">${student.admin_notes || ''}</textarea>
+                            </div>
+                            <div class="student-actions" style="justify-content: flex-end; display: flex;">
+                                 <button class="btn btn-primary btn-sm btn-save-notes" data-id="${student.id}" style="width: auto;">Salva Note</button>
+                                 <button class="btn btn-secondary btn-sm btn-edit-student" data-id="${student.id}" data-name="${student.name}" data-code="${student.code}">Modifica</button>
+                                 <button class="btn btn-danger btn-sm btn-delete-student" data-id="${student.id}" data-name="${student.name}">Elimina</button>
+                            </div>
+                        </div>
+                    </div>`;
+                }).join('');
+            };
+
+            const showUserModal = (isEdit, userData = {}) => {
+                document.getElementById('user-modal-title').textContent = isEdit ? 'Modifica Allievo' : 'Crea Nuovo Allievo';
+                document.getElementById('user-modal-name').value = userData.name || '';
+                document.getElementById('user-modal-code').value = userData.code || '';
+                document.getElementById('user-modal-save').onclick = () => handleSaveUser(userData.id);
+                document.getElementById('user-modal-overlay').style.display = 'flex';
+            };
+            const handleSaveUser = async (userId) => {
+                const name = document.getElementById('user-modal-name').value.trim();
+                const code = document.getElementById('user-modal-code').value.toUpperCase().trim();
+                if (!name || !code) return alert("Nome e Codice non possono essere vuoti.");
+                showLoading(true);
+                const { error } = userId ? await supabase.from('users').update({ name, code }).eq('id', userId) : await supabase.from('users').insert({ name, code, role: 'student' });
+                showLoading(false);
+                if (error) return alert("Errore: il codice potrebbe essere già in uso.");
+                alert(`Allievo "${name}" salvato.`);
+                await renderStudentList();
+                document.getElementById('user-modal-overlay').style.display = 'none';
+            };
+            const deleteUser = async (userId, userName) => {
+                if (!confirm(`Sei sicuro di voler eliminare "${userName}"? Verranno cancellate anche tutte le sue prenotazioni.`)) return;
+                showLoading(true);
+                const { error } = await supabase.from('users').delete().eq('id', userId);
+                showLoading(false);
+                if (error) return alert("Errore durante l'eliminazione.");
+                alert("Allievo eliminato.");
+                await renderStudentList();
+            };
+
+            const renderScheduleSettings = async () => {
+                state.locationsToDelete = [];
+                const contentDiv = document.getElementById('schedule-settings-content');
+                contentDiv.innerHTML = 'Caricamento...';
+                showLoading(true);
+                const { data, error } = await supabase.from('schedule_config').select('*').order('location');
+                showLoading(false);
+                if(error) return console.error("Errore caricamento impostazioni:", error);
+                contentDiv.innerHTML = '';
+                data.forEach(config => addLocationToDOM(config.location, config.work_days, config.start_time, config.end_time));
+            };
             
-            showLoading(false);
-            if (insertError) alert("Errore durante la creazione del pacchetto.");
-            else {
-                const dates = lessonsBooked.map(b => new Date(b.date + 'T00:00:00').toLocaleDateString('it-IT')).join('\n');
-                alert(`Pacchetto di ${numLessons} lezioni e ${changes} cambi creato per ${studentCode}.\n\nDate prenotate:\n${dates}`);
-            }
-            await renderTimeSlots(formatDate(state.selectedDate));
+            const addLocationToDOM = (locationName, workDays = [], startTime = '15:00', endTime = '21:00') => {
+                const contentDiv = document.getElementById('schedule-settings-content');
+                const daysOfWeek = ['Domenica', 'Lunedì', 'Martedì', 'Mercoledì', 'Giovedì', 'Venerdì', 'Sabato'];
+                let locationHtml = `<div class="admin-tool-card" data-location-block="${locationName}">
+                    <div style="display:flex; justify-content:space-between; align-items:center;">
+                        <h4 style="margin:0;">${locationName}</h4>
+                        <button class="btn btn-danger btn-sm btn-remove-location" data-location="${locationName}">&times; Rimuovi</button>
+                    </div>
+                    <div class="days-checkboxes" data-location="${locationName}" style="display:grid; grid-template-columns:repeat(auto-fit, minmax(100px, 1fr)); gap:0.5rem; margin-top:1rem;">`;
+                for (let i = 1; i <= 6; i++) {
+                    const isChecked = workDays.includes(i);
+                    locationHtml += `<div><input type="checkbox" id="${locationName}-${i}" value="${i}" ${isChecked ? 'checked' : ''}><label for="${locationName}-${i}" style="margin-left:0.25rem;">${daysOfWeek[i]}</label></div>`;
+                }
+                locationHtml += `</div>
+                <div class="time-inputs-container">
+                    <div>
+                        <label for="start-time-${locationName}">Orario Inizio</label>
+                        <input type="time" id="start-time-${locationName}" value="${formatTime(startTime)}" step="900">
+                    </div>
+                    <div>
+                        <label for="end-time-${locationName}">Orario Fine</label>
+                        <input type="time" id="end-time-${locationName}" value="${formatTime(endTime)}" step="900">
+                    </div>
+                </div>
+                </div>`;
+                contentDiv.insertAdjacentHTML('beforeend', locationHtml);
+            };
+
+            const saveScheduleSettings = async () => {
+                showLoading(true);
+                const promises = [];
+                if (state.locationsToDelete.length > 0) {
+                    promises.push(supabase.from('schedule_config').delete().in('location', state.locationsToDelete));
+                }
+                const updates = [];
+                document.querySelectorAll('[data-location-block]').forEach(div => {
+                    const location = div.dataset.locationBlock;
+                    if (state.locationsToDelete.includes(location)) return;
+                    const work_days = Array.from(div.querySelectorAll('.days-checkboxes input:checked')).map(box => parseInt(box.value));
+                    const start_time = document.getElementById(`start-time-${location}`).value;
+                    const end_time = document.getElementById(`end-time-${location}`).value;
+                    updates.push({ location, work_days, start_time, end_time });
+                });
+                if (updates.length > 0) {
+                    promises.push(supabase.from('schedule_config').upsert(updates, { onConflict: 'location' }));
+                }
+                const results = await Promise.all(promises);
+                showLoading(false);
+                if (results.some(res => res.error)) { alert("Errore nel salvataggio."); console.error(results.map(r=>r.error)); } 
+                else { alert("Impostazioni salvate."); await loadInitialData(); navigateTo('main-screen'); }
+            };
+
+            const removeLocationFromDOM = (locationToRemove) => {
+                if (confirm(`Sei sicuro di voler rimuovere la sede "${locationToRemove}"? La modifica sarà definitiva solo dopo aver cliccato 'Salva Modifiche'.`)) {
+                    if (!state.locationsToDelete.includes(locationToRemove)) state.locationsToDelete.push(locationToRemove);
+                    document.querySelector(`[data-location-block="${locationToRemove}"]`)?.remove();
+                }
+            };
+            document.getElementById('student-list-screen').addEventListener('click', async (e) => {
+                const button = e.target.closest('button');
+                if (!button || button.id.startsWith('back-to-main')) return;
+
+                if (button.id === 'create-student-btn') showUserModal(false);
+                if (button.classList.contains('btn-edit-student')) showUserModal(true, button.dataset);
+                if (button.classList.contains('btn-delete-student')) deleteUser(button.dataset.id, button.dataset.name);
+
+                if (button.classList.contains('btn-toggle-details')) {
+                    const targetId = button.dataset.target;
+                    const detailsDiv = document.getElementById(targetId);
+                    if (detailsDiv) {
+                        detailsDiv.style.display = detailsDiv.style.display === 'block' ? 'none' : 'block';
+                    }
+                }
+                if (button.classList.contains('btn-save-notes')) {
+                    const studentId = button.dataset.id;
+                    const notes = document.getElementById(`notes-${studentId}`).value;
+                    showLoading(true);
+                    const { error } = await supabase.from('users').update({ admin_notes: notes }).eq('id', studentId);
+                    showLoading(false);
+                    if (error) alert('Errore nel salvataggio delle note.');
+                    else alert('Note salvate con successo.');
+                }
+            });
+             document.getElementById('schedule-settings-screen').addEventListener('click', (e) => {
+                const button = e.target.closest('button');
+                if (!button || button.id.startsWith('back-to-main')) return;
+                if (button.id === 'add-location-btn') {
+                    const input = document.getElementById('new-location-name'); const newLocationName = input.value.trim();
+                    if (newLocationName && !document.querySelector(`[data-location-block="${newLocationName}"]`)) {
+                        addLocationToDOM(newLocationName); input.value = '';
+                    } else { alert('Inserisci un nome valido o un nome non già presente.'); }
+                }
+                if (button.id === 'save-schedule-settings-btn') saveScheduleSettings();
+                if (button.classList.contains('btn-remove-location')) removeLocationFromDOM(button.dataset.location);
+            });
+            return { renderStudentList, renderScheduleSettings };
         };
+        const { renderStudentList, renderScheduleSettings } = studentListAndSettingsFunctions();
+
+        const remainingFunctions = () => {
+            const renderNotifications = async () => {
+                const listDiv = document.getElementById('notifications-list');
+                showLoading(true);
+                const { data: notifications, error: notifError } = await supabase.from('notifications').select('*').eq('status', 'pending');
+                if (notifError || !notifications || notifications.length === 0) {
+                    listDiv.innerHTML = '<p>Nessuna nuova notifica.</p>';
+                    showLoading(false);
+                    return;
+                }
+                const bookingIds = notifications.map(n => n.booking_id).filter(id => id);
+                let bookingsMap = new Map();
+                if(bookingIds.length > 0) {
+                    const { data: bookings, error: bookError } = await supabase.from('bookings').select('*').in('id', bookingIds);
+                    if (bookError) console.error(bookError);
+                    else bookingsMap = new Map(bookings.map(b => [b.id, b]));
+                }
+                showLoading(false);
+                listDiv.innerHTML = notifications.map(n => {
+                    const booking = n.booking_id ? bookingsMap.get(n.booking_id) : null;
+                    let bookingDetails = '<i>Info sulla lezione originale non disponibili.</i>';
+                    if (booking) {
+                        bookingDetails = `Sede: ${booking.location}<br>Giorno: ${new Date(booking.date + 'T00:00:00').toLocaleDateString('it-IT')}<br>Orario: ${formatTime(booking.start_time)} - ${formatTime(booking.end_time)}`;
+                    }
+                    return `<div class="notification-item" data-notification-id="${n.id}" data-booking-id="${n.booking_id || ''}"><p>Da: <strong>${n.student_name}</strong></p><p>Richiesta: <em>"${n.message}"</em></p><div class="notification-details">${bookingDetails}</div><div class="notification-actions"><button class="btn btn-primary btn-sm btn-reply">Rispondi</button><button class="btn btn-secondary btn-sm btn-mark-read">Segna come Letta</button>${booking ? `<button class="btn btn-danger btn-sm btn-cancel-booking">Cancella Lezione</button>` : ''}</div></div>`;
+                }).join('');
+            };
+            
+            const renderSchedule = async () => {
+                const grid = document.getElementById('schedule-grid'), label = document.getElementById('week-label');
+                grid.innerHTML = 'Caricamento...';
+                const current = new Date(state.scheduleCurrentDate);
+                const dayOfWeek = current.getDay();
+                const diff = current.getDate() - dayOfWeek + (dayOfWeek === 0 ? -6 : 1);
+                const weekStart = new Date(current.setDate(diff));
+                const weekEnd = new Date(weekStart); weekEnd.setDate(weekStart.getDate() + 5);
+                label.textContent = `${weekStart.toLocaleDateString('it-IT', {day:'2-digit', month:'2-digit'})} - ${weekEnd.toLocaleDateString('it-IT', {day:'2-digit', month:'2-digit', year:'numeric'})}`;
+                showLoading(true);
+                const { data: bookings, error } = await supabase.from('bookings').select('*, users(name)').gte('date', formatDate(weekStart)).lte('date', formatDate(weekEnd)).order('date').order('start_time');
+                showLoading(false);
+                if(error) return console.error(error);
+                const bookingsByDay = {};
+                for(let i=0; i<6; i++) { const d = new Date(weekStart); d.setDate(weekStart.getDate() + i); bookingsByDay[formatDate(d)] = []; }
+                bookings.forEach(b => { if(bookingsByDay[b.date]) bookingsByDay[b.date].push(b); });
+                const dayNames = ['Lunedì', 'Martedì', 'Mercoledì', 'Giovedì', 'Venerdì', 'Sabato'];
+                grid.innerHTML = dayNames.map((name, i) => {
+                    const dayDate = new Date(weekStart); dayDate.setDate(weekStart.getDate() + i);
+                    const dayBookings = bookingsByDay[formatDate(dayDate)];
+                    let bookingsHtml = '<p>Nessuna lezione.</p>';
+                    if(dayBookings.length > 0) {
+                        bookingsHtml = dayBookings.map(b => `<div class="schedule-booking"><strong>${formatTime(b.start_time)}</strong> - ${b.users.name} <small>(${b.location})</small></div>`).join('');
+                    }
+                    return `<div class="schedule-day-column"><h5>${name} ${dayDate.getDate()}</h5>${bookingsHtml}</div>`;
+                }).join('');
+            };
+
+            const renderAdminTools = () => {
+                const select = document.getElementById('admin-tools-location');
+                select.innerHTML = Object.keys(state.scheduleConfig).map(loc => `<option value="${loc}">${loc}</option>`).join('');
+            };
+
+            const internalBlockDay = async (dateStr, location, unblock = false) => {
+                const rule_type = unblock ? 'UNBLOCK' : 'BLOCK';
+                const locationConfig = state.scheduleConfig[location];
+                const newRule = {
+                    location, rule_type, day_of_week: new Date(dateStr + 'T00:00:00').getDay(),
+                    start_time: locationConfig.start_time, end_time: locationConfig.end_time,
+                    start_date: dateStr, end_date: dateStr
+                };
+                
+                if (!unblock) {
+                    const { data: bookings } = await supabase.from('bookings').select('*, users(name, code)').eq('date', dateStr).eq('location', location);
+                    if (bookings && bookings.length > 0) {
+                        const bookingIds = bookings.map(b => b.id);
+                        const notifications = bookings.map(b => ({ student_code: b.users.code, student_name: b.users.name, message: `La tua lezione del ${dateStr} alle ${formatTime(b.start_time)} è stata annullata per indisponibilità. Questa notifica è automatica, contatta l'insegnante per dettagli.`, booking_id: null, status: 'replied', reply_message: `La tua lezione del ${dateStr} è stata annullata per indisponibilità. Contatta l'insegnante per riprogrammare.`}));
+                        await supabase.from('bookings').delete().in('id', bookingIds);
+                        await supabase.from('notifications').insert(notifications);
+                    }
+                }
+                await supabase.from('availability_rules').insert(newRule);
+            };
+            return {renderNotifications, renderSchedule, renderAdminTools, internalBlockDay};
+        };
+        const {renderNotifications, renderSchedule, renderAdminTools, internalBlockDay} = remainingFunctions();
         
         mainEl.addEventListener('click', async (e) => {
             const button = e.target.closest('button');
@@ -718,29 +855,8 @@
             if (target.classList.contains('valid')) await renderTimeSlots(target.dataset.date, false);
             if (!dateStr || !target.closest('button')) return;
             const buttonId = target.closest('button').id;
-            if (buttonId === 'block-day-btn') { if (confirm(`Sei sicuro di bloccare il giorno ${dateStr}? Le prenotazioni verranno cancellate.`)) { await internalBlockDay(dateStr, state.currentLocation); await renderTimeSlots(dateStr, false); } }
-            if (buttonId === 'unblock-day-btn') { await internalUnblockDay(dateStr, state.currentLocation); await renderTimeSlots(dateStr, false); }
-            if (buttonId === 'block-week-btn' || buttonId === 'unblock-week-btn') {
-                const isBlocking = buttonId === 'block-week-btn';
-                if (!confirm(`SEI SICURO? Questa azione ${isBlocking ? 'bloccherà' : 'sbloccherà'} la settimana corrente per TUTTE le sedi.`)) return;
-                showLoading(true);
-                const d = new Date(state.selectedDate);
-                const dayOfWeek = d.getDay() === 0 ? 7 : d.getDay();
-                const weekStart = new Date(d.setDate(d.getDate() - dayOfWeek + 1));
-                const promises = [];
-                const allLocations = Object.keys(state.scheduleConfig);
-                for(let i=0; i<6; i++) {
-                    const currentDay = new Date(weekStart); currentDay.setDate(weekStart.getDate() + i);
-                    for (const loc of allLocations) {
-                        if(isDayOfWeekAvailable(currentDay, loc)) {
-                            promises.push(isBlocking ? internalBlockDay(formatDate(currentDay), loc) : internalUnblockDay(formatDate(currentDay), loc));
-                        }
-                    }
-                }
-                await Promise.all(promises);
-                showLoading(false);
-                await renderTimeSlots(dateStr, false);
-            }
+            if (buttonId === 'block-day-btn') { if (confirm(`Sei sicuro di bloccare l'intera giornata ${dateStr}? Le prenotazioni verranno cancellate e verrà creata una regola solo per oggi.`)) { await internalBlockDay(dateStr, state.currentLocation); await renderTimeSlots(dateStr, false); } }
+            if (buttonId === 'unblock-day-btn') { if (confirm(`Sei sicuro di sbloccare l'intera giornata ${dateStr}? Verrà creata una regola di sblocco solo per oggi.`)) { await internalBlockDay(dateStr, state.currentLocation, true); await renderTimeSlots(dateStr, false); } }
         });
         
         document.getElementById('schedule-screen').addEventListener('click', async e => {
@@ -771,45 +887,6 @@
             if (error) alert("Errore durante la cancellazione.");
             else alert(`${bookingCount} prenotazioni cancellate con successo.`);
         });
-
-        document.getElementById('student-list-screen').addEventListener('click', async (e) => {
-            const button = e.target.closest('button');
-            if (!button || button.id.startsWith('back-to-main')) return;
-
-            if (button.id === 'create-student-btn') showUserModal(false);
-            if (button.classList.contains('btn-edit-student')) showUserModal(true, button.dataset);
-            if (button.classList.contains('btn-delete-student')) deleteUser(button.dataset.id, button.dataset.name);
-
-            if (button.classList.contains('btn-toggle-details')) {
-                const targetId = button.dataset.target;
-                const detailsDiv = document.getElementById(targetId);
-                if (detailsDiv) {
-                    detailsDiv.style.display = detailsDiv.style.display === 'block' ? 'none' : 'block';
-                }
-            }
-            if (button.classList.contains('btn-save-notes')) {
-                const studentId = button.dataset.id;
-                const notes = document.getElementById(`notes-${studentId}`).value;
-                showLoading(true);
-                const { error } = await supabase.from('users').update({ admin_notes: notes }).eq('id', studentId);
-                showLoading(false);
-                if (error) alert('Errore nel salvataggio delle note.');
-                else alert('Note salvate con successo.');
-            }
-        });
-
-        document.getElementById('schedule-settings-screen').addEventListener('click', (e) => {
-            const button = e.target.closest('button');
-            if (!button || button.id.startsWith('back-to-main')) return;
-            if (button.id === 'add-location-btn') {
-                const input = document.getElementById('new-location-name'); const newLocationName = input.value.trim();
-                if (newLocationName && !document.querySelector(`[data-location-block="${newLocationName}"]`)) {
-                    addLocationToDOM(newLocationName); input.value = '';
-                } else { alert('Inserisci un nome valido o un nome non già presente.'); }
-            }
-            if (button.id === 'save-schedule-settings-btn') saveScheduleSettings();
-            if (button.classList.contains('btn-remove-location')) removeLocationFromDOM(button.dataset.location);
-        });
         
         document.getElementById('slots-content').addEventListener('click', async (e) => {
             const target = e.target;
@@ -823,50 +900,20 @@
                     if (error) { alert("Errore durante la prenotazione."); } else { alert("Prenotazione confermata!"); await renderTimeSlots(dateStr, false); await renderStudentBookingSummary(); }
                 }
             } else if (state.currentUser.role === 'admin' && target.classList.contains('time-slot')) {
-                const time = target.dataset.time, dateStr = formatDate(state.selectedDate), location = state.currentLocation;
-                const statusClass = target.classList.contains('free') ? 'free' : (target.classList.contains('booked') ? 'booked' : 'blocked');
-                const bookingData = JSON.parse(target.dataset.booking);
-                let info = `Orario: ${time}\nStato: `;
-                if(statusClass === 'booked') info += `Occupato da ${bookingData.users.name}`;
-                else if(statusClass === 'blocked') info += 'Bloccato';
-                else info += 'Libero';
-                alert(info);
-                const choice = prompt("Cosa vuoi fare?\n\n1. Gestisci Blocco Orario\n2. Assegna Lezione Singola\n3. Assegna Pacchetto a Studente");
-                if (!choice) return;
-                if (choice === '1') {
-                    showLoading(true);
-                    if (statusClass === 'blocked') {
-                        if (confirm('Questo slot è bloccato. Vuoi sbloccarlo?')) await supabase.from('blocked_slots').delete().eq('date', dateStr).eq('location', location).gte('start_time', time + ':00').lt('end_time', new Date(new Date(`${dateStr}T${time}`).getTime() + 16 * 60000).toTimeString().substring(0,8));
-                    } else if (confirm(`Vuoi bloccare lo slot delle ${time}? ${statusClass === 'booked' ? '\nATTENZIONE: la lezione prenotata verrà CANCELLATA e lo studente avvisato.' : ''}`)) {
-                        if (statusClass === 'booked') {
-                            await supabase.from('bookings').delete().eq('id', bookingData.id);
-                            await supabase.from('notifications').insert({ student_code: bookingData.users.code, student_name: bookingData.users.name, message: `La tua lezione del ${dateStr} alle ${time} è stata annullata.`, booking_id: null, status: 'replied', reply_message: `La tua lezione del ${dateStr} alle ${time} è stata annullata.` });
-                        }
-                        const endTime = new Date(new Date(`${dateStr}T${time}`).getTime() + 15 * 60000).toTimeString().substring(0,8);
-                        await supabase.from('blocked_slots').insert({ date: dateStr, location, start_time: time, end_time: endTime });
-                    }
-                    showLoading(false); await renderTimeSlots(dateStr, false);
-                } else if (choice === '2') {
-                     const studentCode = prompt("Inserisci il codice dell'allievo:").toUpperCase();
-                     if(studentCode) {
-                        const durationInput = prompt("Inserisci la durata della lezione (45 o 60 minuti):");
-                        const duration = parseInt(durationInput);
-
-                        if (![45, 60].includes(duration)) {
-                            alert("Durata non valida. Inserisci 45 o 60.");
-                            return;
-                        }
-                        
+                const time = target.dataset.time;
+                const isBlocked = target.classList.contains('blocked');
+                const isBooked = target.classList.contains('booked');
+                if (isBooked) {
+                    const bookingData = JSON.parse(target.dataset.booking);
+                    if(confirm(`Questo slot è occupato da ${bookingData.users.name}.\n\nVuoi cancellare la sua lezione e bloccare l'orario?`)){
                         showLoading(true);
-                        const { data: student } = await supabase.from('users').select('code').eq('code', studentCode).single();
-                        if (student) {
-                            const endTime = new Date(new Date(`${dateStr}T${time}`).getTime() + duration * 60000).toTimeString().substring(0,8);
-                            await supabase.from('bookings').insert({ user_code: student.code, location, date: dateStr, start_time: time, end_time: endTime });
-                        } else alert('Codice allievo non trovato.');
-                        showLoading(false); await renderTimeSlots(dateStr, false);
-                     }
-                } else if (choice === '3') {
-                    await assignPackage(state.selectedDate, location);
+                        await supabase.from('bookings').delete().eq('id', bookingData.id);
+                        await supabase.from('notifications').insert({ student_code: bookingData.users.code, student_name: bookingData.users.name, message: `La tua lezione del ${formatDate(state.selectedDate)} alle ${time} è stata annullata.`, booking_id: null, status: 'replied', reply_message: `La tua lezione del ${formatDate(state.selectedDate)} alle ${time} è stata annullata.` });
+                        showLoading(false);
+                        openBlockModal(time, false);
+                    }
+                } else {
+                     openBlockModal(time, isBlocked);
                 }
             }
         });
@@ -924,9 +971,10 @@
             showLoading(false); await renderNotifications(); await updateAdminUI();
         });
 
+        blockModal.form.addEventListener('submit', handleSaveBlockRule);
         document.getElementById('user-modal-cancel').addEventListener('click', () => { document.getElementById('user-modal-overlay').style.display = 'none'; });
+        document.getElementById('block-modal-cancel').addEventListener('click', () => { blockModal.overlay.style.display = 'none'; });
     
-        // Avvio iniziale
         navigateTo('login-screen');
     });
     </script>
