@@ -6,100 +6,231 @@
     <title>Vocal Hub Online</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
-        /* CSS completo qui */
+        :root { --header-bg: #000; --button-primary-bg: #ffc107; --button-primary-text: #000; --secondary-color: #6c757d; --success-color: #28a745; --danger-color: #dc3545; --light-color: #f8f9fa; }
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; margin: 0; background-color: var(--light-color); display: flex; justify-content: center; align-items: center; min-height: 100vh; padding: 1rem 0; }
+        .app-container { width: 100%; max-width: 480px; background-color: white; border-radius: 8px; box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1); overflow: hidden; }
+        header { background-color: var(--header-bg); color: white; text-align: center; }
+        main { padding: 1.5rem; }
+        .screen { display: none; }
+        .screen.active { display: block; }
+        h2, h3, h4 { margin-top: 0; text-align: center; }
+        .form-group { margin-bottom: 1rem; }
+        label { display: block; margin-bottom: 0.5rem; font-weight: 500; }
+        input[type="text"], input[type="number"] { width: 100%; padding: 0.75rem; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; }
+        .btn { display: block; width: 100%; padding: 0.75rem; border: none; border-radius: 4px; font-size: 1rem; font-weight: bold; cursor: pointer; text-align: center; text-decoration: none; margin-top: 0.5rem; }
+        .btn-primary { background-color: var(--button-primary-bg); color: var(--button-primary-text); }
+        .btn-secondary { background-color: var(--secondary-color); color: white; }
+        .btn-danger { background-color: var(--danger-color); color: white; }
+        .btn-sm { padding: 0.4rem 0.8rem; font-size: 0.8rem; margin-right: 0.5rem; }
+        .btn-logout { background-color: var(--danger-color); color: white; margin-top: 1rem; }
+        #loading-spinner { display: none; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: 2000; background-color: rgba(255,255,255,0.8); padding: 2rem; border-radius: 8px; box-shadow: 0 5px 15px rgba(0,0,0,0.2); font-weight: bold; }
+        .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0, 0, 0, 0.6); display: none; justify-content: center; align-items: center; z-index: 1000; }
+        .modal-content { background-color: white; padding: 1.5rem; border-radius: 8px; width: 90%; max-width: 400px; box-shadow: 0 5px 20px rgba(0, 0, 0, 0.2); }
+        .modal-buttons { display: flex; justify-content: flex-end; gap: 0.5rem; margin-top: 1.5rem; }
+        .modal-buttons .btn { width: auto; margin-top: 0; }
+        .student-list-item { display: flex; justify-content: space-between; align-items: center; padding: 0.75rem; border: 1px solid #ddd; border-radius: 4px; margin-bottom: 0.5rem; }
+		.student-info { font-weight: 500; }
+		.student-actions .btn { width: auto; margin-top: 0; margin-left: 0.5rem; }
+        .time-range-inputs { margin-top: 1rem; display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; align-items: center; }
     </style>
 </head>
 <body>
+    <div id="loading-spinner">Caricamento...</div>
+    <div class="app-container">
+        <header id="app-header" style="padding: 0.5rem;">
+            <img src="https://esxpbpxdhqijsomqmrvr.supabase.co/storage/v1/object/public/sito/logo.jpg" alt="Vocal Hub Logo" style="height: 60px; width: auto; display: block; margin: 0 auto;">
+        </header>
+        <main>
+            <div id="login-screen" class="screen active">
+                <h2>Accesso</h2>
+                <div class="form-group"><label for="student-code">Codice Allievo</label><input type="text" id="student-code" placeholder="Inserisci il tuo codice" autocomplete="off"></div>
+                <button id="login-btn" class="btn btn-primary">Accedi</button>
+            </div>
+            <div id="main-screen" class="screen">
+                <h2 id="welcome-message"></h2>
+                <div id="location-buttons-container"></div>
+                <div id="admin-actions"></div>
+                <button id="logout-btn" class="btn btn-logout">Esci</button>
+            </div>
+            <div id="schedule-settings-screen" class="screen">
+                <h2>Impostazioni Calendario</h2>
+                <div id="schedule-settings-content"></div><hr>
+                <div class="form-group"><label for="new-location-name">Aggiungi una nuova sede</label><input type="text" id="new-location-name" placeholder="Nome nuova sede"><button id="add-location-btn" class="btn btn-secondary" style="margin-top: 0.5rem;">Aggiungi Sede</button></div>
+                <button id="save-schedule-settings-btn" class="btn btn-primary">Salva Modifiche</button>
+                <button id="back-to-main-from-schedule-settings-btn" class="btn btn-secondary">Torna Indietro</button>
+            </div>
+             </main>
+    </div>
     <script>
-    document.addEventListener('DOMContentLoaded', () => {
-        // --- CONFIGURAZIONE E STATO ---
-        const supabaseUrl = 'https://esxpbpxdhqijsomqmrvr.supabase.co';
-        const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVzeHBicHhkaHFpanNvbXFtcnZyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTUxNjExODYsImV4cCI6MjA3MDczNzE4Nn0.5WuPwviEzanny9ky0IgMIgFo4N83t8dQTUZsbp2wEnk';
-        const supabase = window.supabase.createClient(supabaseUrl, supabaseKey);
-        let state = { /* ... */ };
-        // ... altre variabili e utility ...
+document.addEventListener('DOMContentLoaded', () => {
+    // --- 1. CONFIGURAZIONE ---
+    const supabaseUrl = 'https://esxpbpxdhqijsomqmrvr.supabase.co';
+    const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVzeHBicHhkaHFpanNvbXFtcnZyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTUxNjExODYsImV4cCI6MjA3MDczNzE4Nn0.5WuPwviEzanny9ky0IgMIgFo4N83t8dQTUZsbp2wEnk';
+    const supabaseClient = supabase.createClient(supabaseUrl, supabaseKey);
 
-        // --- FUNZIONI CORE ---
-        // ... login, logout, etc ...
+    // --- 2. STATO E ELEMENTI DOM ---
+    let state = { currentUser: null, scheduleConfig: {} };
+    const loadingSpinner = document.getElementById('loading-spinner');
+    const mainEl = document.querySelector('main');
+    const screens = { 
+        'login-screen': document.getElementById('login-screen'), 
+        'main-screen': document.getElementById('main-screen'),
+        'schedule-settings-screen': document.getElementById('schedule-settings-screen'),
+    };
 
-        const loadInitialData = async () => {
-            showLoading(true);
-            // MODIFICA: Carica anche start_hour e end_hour
-            const { data, error } = await supabase.from('schedule_config').select('location, work_days, start_hour, end_hour');
-            showLoading(false);
-            if (error) return console.error("Errore caricamento config calendario:", error);
-            state.scheduleConfig = {};
-            if (data) data.forEach(item => {
+    // --- 3. FUNZIONI UTILITY ---
+    const showLoading = (show) => { loadingSpinner.style.display = show ? 'block' : 'none'; };
+    const navigateTo = (screenId) => {
+        Object.values(screens).forEach(s => s.classList.remove('active'));
+        if (screens[screenId]) screens[screenId].classList.add('active');
+    };
+
+    // --- 4. FUNZIONI CORE ---
+    const login = async () => {
+        const code = document.getElementById('student-code').value.toUpperCase().trim();
+        if (!code) return;
+        showLoading(true);
+        const { data: user, error } = await supabaseClient.from('users').select('*').eq('code', code).single();
+        showLoading(false);
+        if (error && error.code !== 'PGRST116') { return alert('Errore di connessione.'); }
+        if (user) {
+            state.currentUser = user;
+            document.getElementById('welcome-message').textContent = `Ciao, ${user.name}!`;
+            await loadInitialData();
+            if (user.role === 'admin') { updateAdminUI(); }
+            navigateTo('main-screen');
+        } else {
+            alert('Codice non valido. Riprova.');
+        }
+    };
+
+    const loadInitialData = async () => {
+        showLoading(true);
+        const { data, error } = await supabaseClient.from('schedule_config').select('location, work_days, start_hour, end_hour');
+        showLoading(false);
+        if (error) { return console.error("Errore caricamento config:", error); }
+        state.scheduleConfig = {};
+        if (data) {
+            data.forEach(item => {
                 state.scheduleConfig[item.location] = {
                     work_days: item.work_days || [],
                     start_hour: item.start_hour || 15,
-                    end_hour: item.end_hour || 21
+                    end_hour: item.end_hour || 21,
                 };
             });
-            renderLocationButtons();
-        };
+        }
+        renderLocationButtons();
+    };
 
-        // --- FUNZIONI GESTIONE CALENDARIO ---
-        const renderScheduleSettings = async () => {
-            // ... (logica esistente) ...
-            showLoading(true);
-            const { data, error } = await supabase.from('schedule_config').select('*').order('location');
-            showLoading(false);
-            // ... (logica esistente) ...
-            data.forEach(locationData => {
-                let locationHtml = `
-                    <div style="border: 1px solid #eee; padding: 1rem; border-radius: 8px; margin-bottom: 1rem;" data-location-block="${locationData.location}">
-                        <div style="margin-top: 1rem; display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
-                            <div class="form-group">
-                                <label for="start-${locationData.location}">Ora Inizio</label>
-                                <input type="number" id="start-${locationData.location}" class="schedule-hour-input" data-location="${locationData.location}" data-type="start_hour" min="0" max="23" value="${locationData.start_hour || 15}">
-                            </div>
-                            <div class="form-group">
-                                <label for="end-${locationData.location}">Ora Fine</label>
-                                <input type="number" id="end-${locationData.location}" class="schedule-hour-input" data-location="${locationData.location}" data-type="end_hour" min="1" max="24" value="${locationData.end_hour || 21}">
-                            </div>
-                        </div>
-                    </div>`;
-                contentDiv.innerHTML += locationHtml;
+    const renderLocationButtons = () => {
+        const container = document.getElementById('location-buttons-container');
+        container.innerHTML = '';
+        const locations = Object.keys(state.scheduleConfig);
+        if (locations.length > 0) {
+            locations.forEach(location => {
+                const btn = document.createElement('button');
+                btn.className = 'btn btn-primary';
+                btn.dataset.location = location;
+                btn.textContent = location;
+                container.appendChild(btn);
             });
-        };
-        
-        const saveScheduleSettings = async () => {
-            // ... (logica esistente per locationsToDelete) ...
-            const updates = [];
-            document.querySelectorAll('.days-checkboxes').forEach(div => {
-                const location = div.dataset.location;
-                const work_days = Array.from(div.querySelectorAll('input:checked')).map(box => parseInt(box.value));
-                // NUOVA PARTE: Legge i valori degli orari
-                const start_hour = document.getElementById(`start-${location}`).value;
-                const end_hour = document.getElementById(`end-${location}`).value;
-                updates.push({ location, work_days, start_hour, end_hour });
-            });
-            
-            showLoading(true);
-            // Usa upsert per aggiornare o inserire
-            const { error } = await supabase.from('schedule_config').upsert(updates, { onConflict: 'location' });
-            showLoading(false);
-            
-            if (error) { alert("Errore nel salvataggio."); console.error(error); } 
-            else { alert("Impostazioni salvate."); await loadInitialData(); navigateTo('main-screen'); }
-        };
+        } else {
+            container.innerHTML = `<p style="text-align:center; color: #666;">Nessuna sede configurata.</p>`;
+        }
+    };
 
-        const addLocation = async () => {
-            // Quando si aggiunge una nuova sede, ora verranno usati i valori di default (15 e 21)
-            // La logica rimane la stessa.
-        };
+    const updateAdminUI = () => {
+        document.getElementById('admin-actions').innerHTML = `<button id="manage-schedule-btn" class="btn btn-secondary">Impostazioni Calendario</button>`;
+    };
 
-        const renderAdminTimeGrid = async (dateStr, location) => {
-            // ... (logica esistente) ...
-            // MODIFICA: Usa gli orari dallo stato invece che valori fissi
-            const locationConfig = state.scheduleConfig[location];
-            const slots = generateTimeSlots(locationConfig.start_hour, locationConfig.end_hour, 15);
-            // ... (il resto della funzione rimane invariato) ...
-        };
+    const renderScheduleSettings = () => {
+        const contentDiv = document.getElementById('schedule-settings-content');
+        contentDiv.innerHTML = '';
+        const daysOfWeek = ['Domenica', 'Lunedì', 'Martedì', 'Mercoledì', 'Giovedì', 'Venerdì', 'Sabato'];
+        const locations = Object.keys(state.scheduleConfig);
+        locations.forEach(location => {
+            const config = state.scheduleConfig[location];
+            let locationHtml = `
+                <div class="location-setting" data-location-block="${location}" style="border:1px solid #ddd; padding:1rem; border-radius:8px; margin-bottom:1rem;">
+                    <div style="display:flex; justify-content:space-between; align-items:center;">
+                        <h4 style="margin:0;">${location}</h4>
+                        <button class="btn btn-danger btn-sm btn-remove-location" data-location="${location}">&times; Rimuovi</button>
+                    </div>
+                    <div class="days-checkboxes" data-location="${location}" style="margin-top:1rem;">`;
+            for (let i = 1; i <= 6; i++) {
+                const isChecked = config.work_days.includes(i);
+                locationHtml += `<div><input type="checkbox" id="${location}-${i}" value="${i}" ${isChecked ? 'checked' : ''}><label for="${location}-${i}" style="margin-left:0.25rem;">${daysOfWeek[i]}</label></div>`;
+            }
+            locationHtml += `</div>
+            <div class="time-range-inputs">
+                <div class="form-group"><label for="start-${location}">Ora Inizio</label><input type="number" id="start-${location}" min="0" max="23" value="${config.start_hour}"></div>
+                <div class="form-group"><label for="end-${location}">Ora Fine</label><input type="number" id="end-${location}" min="1" max="24" value="${config.end_hour}"></div>
+            </div></div>`;
+            contentDiv.innerHTML += locationHtml;
+        });
+    };
+    
+    const saveScheduleSettings = async () => {
+        const upsertData = [];
+        document.querySelectorAll('.location-setting').forEach(div => {
+            const location = div.dataset.locationBlock;
+            const work_days = Array.from(div.querySelectorAll('.days-checkboxes input:checked')).map(box => parseInt(box.value));
+            const start_hour = parseInt(document.getElementById(`start-${location}`).value);
+            const end_hour = parseInt(document.getElementById(`end-${location}`).value);
+            upsertData.push({ location, work_days, start_hour, end_hour });
+        });
+        showLoading(true);
+        const { error } = await supabaseClient.from('schedule_config').upsert(upsertData, { onConflict: 'location' });
+        showLoading(false);
+        if (error) { alert("Errore nel salvataggio."); console.error(error); } 
+        else { alert("Impostazioni salvate."); await loadInitialData(); navigateTo('main-screen'); }
+    };
 
-        // ... Tutte le altre funzioni e gli event listener completi ...
+    const addLocation = async () => {
+        const input = document.getElementById('new-location-name');
+        const newLocationName = input.value.trim();
+        if (!newLocationName) return;
+        showLoading(true);
+        const { error } = await supabaseClient.from('schedule_config').insert({ location: newLocationName });
+        showLoading(false);
+        if (error) { alert("Errore: la sede potrebbe già esistere."); } 
+        else { await loadInitialData(); renderScheduleSettings(); input.value = ''; }
+    };
+
+    const removeLocation = async (locationToRemove) => {
+        if (!confirm(`Sei sicuro di voler rimuovere la sede "${locationToRemove}"?`)) return;
+        showLoading(true);
+        const { error } = await supabaseClient.from('schedule_config').delete().eq('location', locationToRemove);
+        showLoading(false);
+        if (error) { alert("Errore durante la rimozione."); } 
+        else { await loadInitialData(); renderScheduleSettings(); }
+    };
+
+    const logout = () => {
+        state = { currentUser: null, scheduleConfig: {} };
+        document.getElementById('student-code').value = '';
+        navigateTo('login-screen');
+    };
+
+    // --- EVENT LISTENERS ---
+    document.getElementById('login-btn').addEventListener('click', login);
+    document.getElementById('logout-btn').addEventListener('click', logout);
+    document.querySelector('main').addEventListener('click', (e) => {
+        const target = e.target;
+        if (target.id === 'manage-schedule-btn') {
+            renderScheduleSettings();
+            navigateTo('schedule-settings-screen');
+        }
+        if (target.id === 'back-to-main-from-schedule-settings-btn') {
+            navigateTo('main-screen');
+        }
     });
-    </script>
+    document.getElementById('schedule-settings-screen').addEventListener('click', async (e) => {
+        if (e.target.id === 'add-location-btn') await addLocation();
+        if (e.target.id === 'save-schedule-settings-btn') await saveScheduleSettings();
+        if (e.target.classList.contains('btn-remove-location')) await removeLocation(e.target.dataset.location);
+    });
+});
+</script>
 </body>
 </html>
