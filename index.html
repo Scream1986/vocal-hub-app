@@ -786,12 +786,9 @@
                     { setting_name: 'student_link_url', setting_value: linkUrl }
                 ];
                 
-                // =======================================================================
-                // QUESTA È L'UNICA RIGA CHE HO CAMBIATO RISPETTO ALL'ULTIMO FILE
-                // Ho rimosso ", { onConflict: 'setting_name' }" che causava l'errore
+                // VERSIONE CORRETTA
                 promises.push(supabase.from('app_settings').upsert(appSettingsToSave));
-                // =======================================================================
-
+                
                 const results = await Promise.all(promises);
                 showLoading(false);
 
