@@ -6,7 +6,7 @@
     <title>Vocal Hub Online</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
-        :root { --header-bg: #000; --button-primary-bg: #ffc107; --button-primary-text: #000; --secondary-color: #6c757d; --success-color: #28a745; --danger-color: #dc3545; --light-color: #f8f9fa; }
+        :root { --header-bg: #000; --button-primary-bg: #ffc107; --button-primary-text: #000; --secondary-color: #6c757d; --success-color: #28a745; --danger-color: #dc3545; --light-color: #f8f9fa; --warning-color: #fd7e14; --info-color: #17a2b8; }
         body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; margin: 0; background-color: var(--light-color); display: flex; justify-content: center; align-items: center; min-height: 100vh; padding: 1rem 0; }
         .app-container { width: 100%; max-width: 480px; background-color: white; border-radius: 8px; box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1); overflow: hidden; }
         header { background-color: var(--header-bg); color: white; text-align: center; }
@@ -23,6 +23,8 @@
         .btn-secondary { background-color: var(--secondary-color); color: white; }
         .btn-danger { background-color: var(--danger-color); color: white; }
         .btn-success { background-color: var(--success-color); color: white; }
+        .btn-warning { background-color: var(--warning-color); color: white; }
+        .btn-info { background-color: var(--info-color); color: white; }
         .btn-sm { padding: 0.4rem 0.8rem; font-size: 0.8rem; }
         .btn-logout { background-color: var(--danger-color); color: white; margin-top: 1rem; }
         #loading-spinner { display: none; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: 2000; background-color: rgba(255,255,255,0.8); padding: 2rem; border-radius: 8px; box-shadow: 0 5px 15px rgba(0,0,0,0.2); font-weight: bold; }
@@ -33,7 +35,8 @@
         .student-list-item { background-color: #fff; border: 1px solid #ddd; border-radius: 8px; margin-bottom: 1rem; overflow: hidden; }
         .student-header { display: flex; justify-content: space-between; align-items: center; padding: 0.75rem 1rem; background-color: #f8f9fa; }
         .student-info { font-weight: 500; }
-        .student-actions .btn { width: auto; margin: 0 0.25rem; }
+        .student-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 0.5rem; }
+        .student-actions .btn { width: auto; margin: 0; }
         .student-details { display: none; padding: 1rem; border-top: 1px solid #ddd; background-color: #fdfdfd; }
         .student-stats { display: flex; justify-content: space-around; text-align: center; margin-bottom: 1rem; }
         .stat-item span { display: block; font-size: 1.2rem; font-weight: bold; }
@@ -573,8 +576,10 @@
                                 <label for="notes-${student.id}">Note Private</label>
                                 <textarea id="notes-${student.id}">${student.admin_notes || ''}</textarea>
                             </div>
-                            <div class="student-actions" style="justify-content: flex-end; display: flex;">
-                                 <button class="btn btn-primary btn-sm btn-save-notes" data-id="${student.id}" style="width: auto;">Salva Note</button>
+                            <div class="student-actions">
+                                 <button class="btn btn-info btn-sm btn-log-change" data-id="${student.id}">+ Registra Cambio</button>
+                                 <button class="btn btn-warning btn-sm btn-reset-changes" data-id="${student.id}" data-name="${student.name}">Azzera Cambi</button>
+                                 <button class="btn btn-primary btn-sm btn-save-notes" data-id="${student.id}">Salva Note</button>
                                  <button class="btn btn-secondary btn-sm btn-edit-student" data-id="${student.id}" data-name="${student.name}" data-code="${student.code}">Modifica</button>
                                  <button class="btn btn-danger btn-sm btn-delete-student" data-id="${student.id}" data-name="${student.name}">Elimina</button>
                             </div>
@@ -705,6 +710,57 @@
                     showLoading(false);
                     if (error) alert('Errore nel salvataggio delle note.');
                     else alert('Note salvate con successo.');
+                }
+                if (button.classList.contains('btn-reset-changes')) {
+                    const studentId = button.dataset.id;
+                    const studentName = button.dataset.name;
+                    if (confirm(`Sei sicuro di voler azzerare i cambi utilizzati per ${studentName}?`)) {
+                        showLoading(true);
+                        const { error } = await supabase.from('users').update({ changes_used: 0 }).eq('id', studentId);
+                        showLoading(false);
+                        if (error) {
+                            alert('Errore durante l\'azzeramento dei cambi.');
+                            console.error(error);
+                        } else {
+                            alert(`Cambi per ${studentName} azzerati con successo.`);
+                            await renderStudentList();
+                        }
+                    }
+                }
+                if (button.classList.contains('btn-log-change')) {
+                    const studentId = button.dataset.id;
+                    const note = prompt("Vuoi registrare un cambio manuale. Questo incrementerà il contatore 'cambi usati' e aggiungerà una nota allo storico.\n\nInserisci una nota per questo cambio (opzionale):");
+                    
+                    if (note !== null) { 
+                        showLoading(true);
+                        const { data: student, error: fetchError } = await supabase.from('users').select('admin_notes, changes_used').eq('id', studentId).single();
+
+                        if (fetchError || !student) {
+                            showLoading(false);
+                            alert('Impossibile recuperare i dati dello studente per registrare il cambio.');
+                            console.error(fetchError);
+                            return;
+                        }
+
+                        const currentDate = new Date().toLocaleDateString('it-IT', { day: '2-digit', month: '2-digit', year: 'numeric' });
+                        let logEntry = `\n[${currentDate}] - Cambio/Recupero registrato manualmente.`;
+                        if (note.trim()) {
+                            logEntry += ` Nota: ${note.trim()}`;
+                        }
+
+                        const newNotes = (student.admin_notes || '') + logEntry;
+                        const newChangesUsed = (student.changes_used || 0) + 1;
+
+                        const { error: updateError } = await supabase.from('users').update({ admin_notes: newNotes, changes_used: newChangesUsed }).eq('id', studentId);
+                        showLoading(false);
+                        if (updateError) {
+                            alert('Errore durante la registrazione del cambio.');
+                            console.error(updateError);
+                        } else {
+                            alert('Cambio registrato con successo.');
+                            await renderStudentList();
+                        }
+                    }
                 }
             });
              document.getElementById('schedule-settings-screen').addEventListener('click', (e) => {
