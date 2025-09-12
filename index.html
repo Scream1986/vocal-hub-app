@@ -171,7 +171,7 @@
         const supabaseUrl = 'https://esxpbpxdhqijsomqmrvr.supabase.co';
         const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVzeHBicHhkaHFpanNvbXFtcnZyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTUxNjExODYsImV4cCI6MjA3MDczNzE4Nn0.5WuPwviEzanny9ky0IgMIgFo4N83t8dQTUZsbp2wEnk';
         const supabase = window.supabase.createClient(supabaseUrl, supabaseKey);
-        const LINKS_STORAGE_LOCATION = '__EXTERNAL_LINKS_CONFIG__';
+        const LINKS_CONFIG_IDENTIFIER = '__SYSTEM_CONFIG_LINKS__';
 
         let state = { currentUser: null, scheduleConfig: {}, currentDate: new Date(), currentLocation: null, selectedDate: null, scheduleCurrentDate: new Date(), calendarPollingInterval: null, locationsToDelete: [], externalLinks: [] };
         state.currentDate.setDate(1);
@@ -231,20 +231,21 @@
         
         const loadExternalLinks = async () => {
             const { data, error } = await supabase
-                .from('schedule_config')
-                .select('work_days')
-                .eq('location', LINKS_STORAGE_LOCATION)
+                .from('notifications')
+                .select('message')
+                .eq('student_code', LINKS_CONFIG_IDENTIFIER)
+                .order('created_at', { ascending: false })
+                .limit(1)
                 .single();
 
-            if (error || !data || !data.work_days || data.work_days.length === 0) {
+            if (error || !data) {
                 console.warn('Configurazione link non trovata. Verrà creata al primo salvataggio.');
                 state.externalLinks = [];
                 return;
             }
             
             try {
-                const jsonString = String.fromCharCode.apply(null, data.work_days);
-                const links = JSON.parse(jsonString);
+                const links = JSON.parse(data.message);
                 state.externalLinks = Array.isArray(links) ? links : [];
             } catch (e) {
                 console.error('Errore nel parsing della configurazione dei link:', e);
@@ -254,23 +255,23 @@
 
         const loadInitialData = async () => {
             showLoading(true);
-            const { data, error } = await supabase.from('schedule_config').select('*');
-            await loadExternalLinks();
+            const [scheduleRes] = await Promise.all([
+                supabase.from('schedule_config').select('*'),
+                loadExternalLinks()
+            ]);
             showLoading(false);
             
+            const { data, error } = scheduleRes;
             if (error) return console.error("Errore caricamento config calendario:", error);
             
             state.scheduleConfig = {};
             if (data) {
                 data.forEach(item => {
-                    // Filter out the special config row from the actual locations
-                    if (item.location !== LINKS_STORAGE_LOCATION) {
-                        state.scheduleConfig[item.location] = {
-                            work_days: item.work_days || [],
-                            start_time: item.start_time || '15:00:00',
-                            end_time: item.end_time || '21:00:00'
-                        };
-                    }
+                    state.scheduleConfig[item.location] = {
+                        work_days: item.work_days || [],
+                        start_time: item.start_time || '15:00:00',
+                        end_time: item.end_time || '21:00:00'
+                    };
                 });
             }
             renderLocationButtons();
@@ -761,7 +762,7 @@
 
                 contentDiv.innerHTML = '';
                 if (data) {
-                    data.filter(item => item.location !== LINKS_STORAGE_LOCATION).forEach(config => {
+                    data.forEach(config => {
                         addLocationToDOM(config.location, config.work_days, config.start_time, config.end_time);
                     });
                 }
@@ -820,17 +821,13 @@
 
                 try {
                     const jsonString = JSON.stringify(state.externalLinks);
-                    const charCodeArray = [];
-                    for (let i = 0; i < jsonString.length; i++) {
-                        charCodeArray.push(jsonString.charCodeAt(i));
-                    }
                     const linksConfigPayload = {
-                        location: LINKS_STORAGE_LOCATION,
-                        work_days: charCodeArray,
-                        start_time: null,
-                        end_time: null
+                        student_code: LINKS_CONFIG_IDENTIFIER,
+                        student_name: 'System Config',
+                        message: jsonString,
+                        status: 'archived' // To hide it from the normal notifications view
                     };
-                    promises.push(supabase.from('schedule_config').upsert(linksConfigPayload));
+                    promises.push(supabase.from('notifications').insert(linksConfigPayload));
                 } catch (e) {
                     console.error("Errore durante la preparazione dei dati dei link:", e);
                 }
