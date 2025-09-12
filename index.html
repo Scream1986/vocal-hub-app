@@ -16,7 +16,7 @@
         h2, h3, h4 { margin-top: 0; text-align: center; }
         .form-group { margin-bottom: 1rem; }
         label { display: block; margin-bottom: 0.5rem; font-weight: 500; }
-        input[type="text"], input[type="date"], input[type="time"], input[type="number"], input[type="url"], textarea, select { width: 100%; padding: 0.75rem; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; }
+        input[type="text"], input[type="date"], input[type="time"], input[type="number"], textarea, select { width: 100%; padding: 0.75rem; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; }
         textarea { min-height: 80px; }
         .btn { display: block; width: 100%; padding: 0.75rem; border: none; border-radius: 4px; font-size: 1rem; font-weight: bold; cursor: pointer; text-align: center; text-decoration: none; margin-top: 0.5rem; }
         .btn-primary { background-color: var(--button-primary-bg); color: var(--button-primary-text); }
@@ -96,7 +96,6 @@
                 <hr>
                 <p style="text-align:center;">Seleziona una sede per prenotare una nuova lezione:</p>
                 <div id="location-buttons-container"></div>
-                <div id="student-external-link-container" style="margin-top: 1rem;"></div>
                 <div id="admin-actions" style="margin-top: 1.5rem;"></div>
                 <button id="logout-btn" class="btn btn-logout">Esci</button>
             </div>
@@ -104,30 +103,7 @@
             <div id="booking-screen" class="screen"><h2 id="booking-location-title"></h2><div id="booking-admin-actions"></div><div class="calendar"><div id="calendar-header"><button id="prev-month-btn" class="btn btn-secondary btn-sm" style="width: auto;">&lt;</button><h3 id="month-year-label"></h3><button id="next-month-btn" class="btn btn-secondary btn-sm" style="width: auto;">&gt;</button></div><div id="calendar-weekdays"><div class="weekday">Lun</div><div class="weekday">Mar</div><div class="weekday">Mer</div><div class="weekday">Gio</div><div class="weekday">Ven</div><div class="weekday">Sab</div><div class="weekday">Dom</div></div><div id="calendar-grid"></div></div><div id="time-slots-container" style="display:none; margin-top: 1.5rem;"><h3>Orari per il <span id="selected-date-label"></span></h3><div id="slots-content"></div></div><button id="back-to-main-btn" class="btn btn-secondary" style="margin-top: 2rem;">Torna Indietro</button></div>
             <div id="schedule-screen" class="screen"><h2>Orari della Settimana</h2><div id="schedule-header"><button id="prev-week-btn" class="btn btn-secondary btn-sm">&lt; Prec.</button><h4 id="week-label" style="margin:0;"></h4><button id="next-week-btn" class="btn btn-secondary btn-sm">Succ. &gt;</button></div><div id="schedule-grid" style="margin-top: 1rem;"></div><button id="back-to-main-from-schedule-btn" class="btn btn-secondary" style="margin-top: 1rem;">Torna Indietro</button></div>
             <div id="admin-tools-screen" class="screen"><h2>Strumenti Admin</h2><p style="text-align: center; font-size: 0.9rem; color: #6c757d;">Usa questi strumenti per cancellazioni di massa. Le azioni sono irreversibili.</p><div class="admin-tool-card"><h4>Svuota Prenotazioni</h4><div class="form-group"><label for="admin-tools-location">Seleziona Sede</label><select id="admin-tools-location"></select></div><hr><div class="form-group"><label for="reset-day-date">Svuota Giorno Singolo</label><input type="date" id="reset-day-date"><button id="reset-day-btn" class="btn btn-danger">Svuota Giorno</button></div><hr><div class="form-group"><label for="reset-period-start">Svuota Periodo Personalizzato</label><input type="date" id="reset-period-start"><input type="date" id="reset-period-end" style="margin-top: 0.5rem;"><button id="reset-period-btn" class="btn btn-danger">Svuota Periodo</button></div></div><button id="back-to-main-from-admin-tools-btn" class="btn btn-secondary">Torna Indietro</button></div>
-            <div id="schedule-settings-screen" class="screen">
-                <h2>Impostazioni</h2>
-                <div id="schedule-settings-content"></div>
-                <hr>
-                <div class="form-group">
-                    <label for="new-location-name">Aggiungi una nuova sede</label>
-                    <input type="text" id="new-location-name" placeholder="Nome nuova sede">
-                    <button id="add-location-btn" class="btn btn-secondary" style="margin-top: 0.5rem;">Aggiungi Sede</button>
-                </div>
-                <div class="admin-tool-card">
-                    <h4>Impostazioni Link per Allievi</h4>
-                    <p style="font-size: 0.9rem; color: #666;">Questo link apparirà nella schermata principale di tutti gli allievi.</p>
-                    <div class="form-group">
-                        <label for="external-link-label">Testo del bottone</label>
-                        <input type="text" id="external-link-label" placeholder="Es. Materiale Didattico">
-                    </div>
-                    <div class="form-group">
-                        <label for="external-link-url">URL completo (con https://)</label>
-                        <input type="url" id="external-link-url" placeholder="https://www.esempio.com/risorse">
-                    </div>
-                </div>
-                <button id="save-schedule-settings-btn" class="btn btn-primary">Salva Tutte le Modifiche</button>
-                <button id="back-to-main-from-schedule-settings-btn" class="btn btn-secondary">Torna Indietro</button>
-            </div>
+            <div id="schedule-settings-screen" class="screen"><h2>Impostazioni Calendario</h2><div id="schedule-settings-content"></div><hr><div class="form-group"><label for="new-location-name">Aggiungi una nuova sede</label><input type="text" id="new-location-name" placeholder="Nome nuova sede"><button id="add-location-btn" class="btn btn-secondary" style="margin-top: 0.5rem;">Aggiungi Sede</button></div><button id="save-schedule-settings-btn" class="btn btn-primary">Salva Modifiche</button><button id="back-to-main-from-schedule-settings-btn" class="btn btn-secondary">Torna Indietro</button></div>
             <div id="student-list-screen" class="screen"><h2>Gestione Allievi</h2><button id="create-student-btn" class="btn btn-primary" style="margin-bottom: 1rem;">+ Crea Nuovo Allievo</button><div id="student-list"></div><button id="back-to-main-from-student-list-btn" class="btn btn-secondary" style="margin-top: 1rem;">Torna Indietro</button></div>
             <div id="notifications-screen" class="screen"><h2>Notifiche Studenti</h2><div id="notifications-list"></div><button id="back-to-main-from-notifications-btn" class="btn btn-secondary">Torna Indietro</button></div>
         </main>
@@ -175,7 +151,7 @@
         const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVzeHBicHhkaHFpanNvbXFtcnZyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTUxNjExODYsImV4cCI6MjA3MDczNzE4Nn0.5WuPwviEzanny9ky0IgMIgFo4N83t8dQTUZsbp2wEnk';
         const supabase = window.supabase.createClient(supabaseUrl, supabaseKey);
 
-        let state = { currentUser: null, scheduleConfig: {}, currentDate: new Date(), currentLocation: null, selectedDate: null, scheduleCurrentDate: new Date(), calendarPollingInterval: null, locationsToDelete: [], externalLink: { label: '', url: '' } };
+        let state = { currentUser: null, scheduleConfig: {}, currentDate: new Date(), currentLocation: null, selectedDate: null, scheduleCurrentDate: new Date(), calendarPollingInterval: null, locationsToDelete: [] };
         state.currentDate.setDate(1);
         const loadingSpinner = document.getElementById('loading-spinner');
         const mainEl = document.querySelector('main');
@@ -218,13 +194,8 @@
                 state.currentUser = user;
                 document.getElementById('welcome-message').textContent = `Ciao, ${user.name}!`;
                 await loadInitialData();
-                if (user.role === 'admin') {
-                    updateAdminUI();
-                } else { 
-                    checkStudentReplies(); 
-                    renderStudentBookingSummary(); 
-                    renderStudentExternalLink();
-                }
+                if (user.role === 'admin') updateAdminUI();
+                else { checkStudentReplies(); renderStudentBookingSummary(); }
                 navigateTo('main-screen');
             } else {
                 alert('Codice non valido. Riprova.');
@@ -233,47 +204,18 @@
 
         const loadInitialData = async () => {
             showLoading(true);
-            const [scheduleRes, settingsRes] = await Promise.all([
-                supabase.from('schedule_config').select('*'),
-                supabase.from('app_settings').select('*')
-            ]);
+            const { data, error } = await supabase.from('schedule_config').select('*');
             showLoading(false);
-
-            if (scheduleRes.error) console.error("Errore caricamento config calendario:", scheduleRes.error);
+            if (error) return console.error("Errore caricamento config calendario:", error);
             state.scheduleConfig = {};
-            if (scheduleRes.data) scheduleRes.data.forEach(item => {
+            if (data) data.forEach(item => {
                 state.scheduleConfig[item.location] = {
                     work_days: item.work_days || [],
                     start_time: item.start_time || '15:00:00',
                     end_time: item.end_time || '21:00:00'
                 };
             });
-
-            if (settingsRes.error) console.error("Errore caricamento impostazioni app:", settingsRes.error);
-            if (settingsRes.data) {
-                const labelSetting = settingsRes.data.find(s => s.setting_name === 'student_link_label');
-                const urlSetting = settingsRes.data.find(s => s.setting_name === 'student_link_url');
-                state.externalLink = {
-                    label: labelSetting ? labelSetting.setting_value : '',
-                    url: urlSetting ? urlSetting.setting_value : ''
-                };
-            }
-            
             renderLocationButtons();
-        };
-        
-        const renderStudentExternalLink = () => {
-            const container = document.getElementById('student-external-link-container');
-            container.innerHTML = '';
-            if (state.currentUser.role === 'student' && state.externalLink.label && state.externalLink.url) {
-                const linkBtn = document.createElement('a');
-                linkBtn.href = state.externalLink.url;
-                linkBtn.textContent = state.externalLink.label;
-                linkBtn.className = 'btn btn-info'; 
-                linkBtn.target = '_blank';
-                linkBtn.rel = 'noopener noreferrer';
-                container.appendChild(linkBtn);
-            }
         };
 
         const renderLocationButtons = () => {
@@ -296,13 +238,12 @@
         const updateAdminUI = async () => {
             const adminActionsDiv = document.getElementById('admin-actions');
             const { count } = await supabase.from('notifications').select('*', { count: 'exact', head: true }).eq('status', 'pending');
-            adminActionsDiv.innerHTML = `<button id="manage-students-btn" class="btn btn-primary">Gestione Allievi</button><button id="view-schedule-btn" class="btn btn-primary">Visualizza Orari Generali</button><button id="admin-tools-btn" class="btn btn-danger">Strumenti Admin</button><button id="manage-schedule-btn" class="btn btn-secondary">Impostazioni</button><button id="view-notifications-btn" class="btn btn-secondary">Notifiche Studenti (${count ?? 0})</button>`;
+            adminActionsDiv.innerHTML = `<button id="manage-students-btn" class="btn btn-primary">Gestione Allievi</button><button id="view-schedule-btn" class="btn btn-primary">Visualizza Orari Generali</button><button id="admin-tools-btn" class="btn btn-danger">Strumenti Admin</button><button id="manage-schedule-btn" class="btn btn-secondary">Impostazioni Calendario</button><button id="view-notifications-btn" class="btn btn-secondary">Notifiche Studenti (${count ?? 0})</button>`;
         };
 
         const logout = () => {
-            document.getElementById('student-external-link-container').innerHTML = '';
             navigateTo('login-screen');
-            state = { currentUser: null, scheduleConfig: {}, currentDate: new Date(), currentLocation: null, selectedDate: null, scheduleCurrentDate: new Date(), calendarPollingInterval: null, locationsToDelete: [], externalLink: { label: '', url: '' } };
+            state = { currentUser: null, scheduleConfig: {}, currentDate: new Date(), currentLocation: null, selectedDate: null, scheduleCurrentDate: new Date(), calendarPollingInterval: null, locationsToDelete: [] };
             state.currentDate.setDate(1);
             document.getElementById('student-code').value = '';
             document.getElementById('admin-actions').innerHTML = '';
@@ -724,12 +665,8 @@
                 const { data, error } = await supabase.from('schedule_config').select('*').order('location');
                 showLoading(false);
                 if(error) return console.error("Errore caricamento impostazioni:", error);
-                
                 contentDiv.innerHTML = '';
-                if (data) data.forEach(config => addLocationToDOM(config.location, config.work_days, config.start_time, config.end_time));
-
-                document.getElementById('external-link-label').value = state.externalLink.label || '';
-                document.getElementById('external-link-url').value = state.externalLink.url || '';
+                data.forEach(config => addLocationToDOM(config.location, config.work_days, config.start_time, config.end_time));
             };
             
             const addLocationToDOM = (locationName, workDays = [], startTime = '15:00', endTime = '21:00') => {
@@ -737,7 +674,7 @@
                 const daysOfWeek = ['Domenica', 'Lunedì', 'Martedì', 'Mercoledì', 'Giovedì', 'Venerdì', 'Sabato'];
                 let locationHtml = `<div class="admin-tool-card" data-location-block="${locationName}">
                     <div style="display:flex; justify-content:space-between; align-items:center;">
-                        <h4 style="margin:0;">Sede: ${locationName}</h4>
+                        <h4 style="margin:0;">${locationName}</h4>
                         <button class="btn btn-danger btn-sm btn-remove-location" data-location="${locationName}">&times; Rimuovi</button>
                     </div>
                     <div class="days-checkboxes" data-location="${locationName}" style="display:grid; grid-template-columns:repeat(auto-fit, minmax(100px, 1fr)); gap:0.5rem; margin-top:1rem;">`;
@@ -778,32 +715,10 @@
                 if (updates.length > 0) {
                     promises.push(supabase.from('schedule_config').upsert(updates, { onConflict: 'location' }));
                 }
-
-                const linkLabel = document.getElementById('external-link-label').value.trim();
-                const linkUrl = document.getElementById('external-link-url').value.trim();
-                const appSettingsToSave = [
-                    { setting_name: 'student_link_label', setting_value: linkLabel },
-                    { setting_name: 'student_link_url', setting_value: linkUrl }
-                ];
-                
-                // VERSIONE CORRETTA
-                promises.push(supabase.from('app_settings').upsert(appSettingsToSave));
-                
                 const results = await Promise.all(promises);
                 showLoading(false);
-
-                const settingsResult = results[results.length - 1]; 
-                if (settingsResult && settingsResult.error) {
-                    console.error("Errore specifico salvataggio impostazioni:", settingsResult.error);
-                    alert("Errore nel salvataggio delle impostazioni del link. Controlla la console per i dettagli. Assicurati che il nome della colonna in Supabase sia 'setting_name'.");
-                } else if (results.some(res => res && res.error)) {
-                    alert("Errore nel salvataggio di alcune impostazioni.");
-                    console.error(results.map(r => r ? r.error : 'Nessun errore'));
-                } else {
-                    alert("Impostazioni salvate con successo.");
-                    await loadInitialData();
-                    navigateTo('main-screen');
-                }
+                if (results.some(res => res.error)) { alert("Errore nel salvataggio."); console.error(results.map(r=>r.error)); } 
+                else { alert("Impostazioni salvate."); await loadInitialData(); navigateTo('main-screen'); }
             };
 
             const removeLocationFromDOM = (locationToRemove) => {
@@ -1156,4 +1071,4 @@
     </script>
 </body>
 </html>
-
+}
