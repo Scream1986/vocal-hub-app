@@ -40,6 +40,10 @@
         .student-details { display: none; padding: 1rem; border-top: 1px solid #ddd; background-color: #fdfdfd; }
         .student-stats { display: flex; justify-content: space-around; text-align: center; margin-bottom: 1rem; }
         .stat-item span { display: block; font-size: 1.2rem; font-weight: bold; }
+        .student-appointments { margin-top: 1.5rem; margin-bottom: 1.5rem; padding: 1rem; background-color: #f8f9fa; border-radius: 6px; border: 1px solid #eee; }
+        .student-appointments h4 { margin-bottom: 1rem; border-bottom: 1px solid #ddd; padding-bottom: 0.5rem; text-align: left; }
+        .student-appointments h5 { margin-top: 1rem; margin-bottom: 0.5rem; font-size: 0.9rem; color: #333; text-align: left; font-weight: 600; }
+        .student-appointments .appointment-item { font-size: 0.85rem; padding: 0.5rem; border-radius: 4px; background-color: #fff; margin-bottom: 0.5rem; border: 1px solid #e9ecef; }
         .calendar { margin-top: 1.5rem; }
         #calendar-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; }
         #calendar-weekdays, #calendar-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 5px; text-align: center; }
@@ -88,10 +92,7 @@
             <div id="main-screen" class="screen">
                 <h2 id="welcome-message"></h2>
                 <div id="lesson-counter-display"></div>
-                <div id="student-bookings-summary"></div>
-                <div id="student-actions" style="margin-top: 1rem; margin-bottom: 1.5rem;">
-                    <button id="view-history-btn" class="btn btn-secondary">Storico Lezioni</button>
-                </div>
+                <div id="student-bookings-summary" style="margin-top: 1.5rem;"></div>
                 <hr>
                 <p style="text-align:center;">Seleziona una sede per prenotare una nuova lezione:</p>
                 <div id="location-buttons-container"></div>
@@ -105,12 +106,6 @@
             <div id="schedule-settings-screen" class="screen"><h2>Impostazioni Calendario</h2><div id="schedule-settings-content"></div><hr><div class="form-group"><label for="new-location-name">Aggiungi una nuova sede</label><input type="text" id="new-location-name" placeholder="Nome nuova sede"><button id="add-location-btn" class="btn btn-secondary" style="margin-top: 0.5rem;">Aggiungi Sede</button></div><button id="save-schedule-settings-btn" class="btn btn-primary">Salva Modifiche</button><button id="back-to-main-from-schedule-settings-btn" class="btn btn-secondary">Torna Indietro</button></div>
             <div id="student-list-screen" class="screen"><h2>Gestione Allievi</h2><button id="create-student-btn" class="btn btn-primary" style="margin-bottom: 1rem;">+ Crea Nuovo Allievo</button><div id="student-list"></div><button id="back-to-main-from-student-list-btn" class="btn btn-secondary" style="margin-top: 1rem;">Torna Indietro</button></div>
             <div id="notifications-screen" class="screen"><h2>Notifiche Studenti</h2><div id="notifications-list"></div><button id="back-to-main-from-notifications-btn" class="btn btn-secondary">Torna Indietro</button></div>
-            
-            <div id="history-screen" class="screen">
-                <h2>Storico Lezioni</h2>
-                <div id="past-bookings-list"></div>
-                <button id="back-to-main-from-history-btn" class="btn btn-secondary" style="margin-top: 1rem;">Torna Indietro</button>
-            </div>
         </main>
     </div>
     <div id="user-modal-overlay" class="modal-overlay"><div class="modal-content"><h4 id="user-modal-title"></h4><div class="form-group"><label for="user-modal-name">Nome Allievo</label><input type="text" id="user-modal-name"></div><div class="form-group"><label for="user-modal-code">Codice Allievo</label><input type="text" id="user-modal-code" autocomplete="off"></div><div class="modal-buttons"><button id="user-modal-cancel" class="btn btn-secondary">Annulla</button><button id="user-modal-save" class="btn btn-primary">Salva</button></div></div></div>
@@ -160,7 +155,7 @@
         state.currentDate.setDate(1);
         const loadingSpinner = document.getElementById('loading-spinner');
         const mainEl = document.querySelector('main');
-        const screens = { 'login-screen': document.getElementById('login-screen'), 'main-screen': document.getElementById('main-screen'), 'schedule-settings-screen': document.getElementById('schedule-settings-screen'), 'student-list-screen': document.getElementById('student-list-screen'), 'booking-screen': document.getElementById('booking-screen'), 'notifications-screen': document.getElementById('notifications-screen'), 'schedule-screen': document.getElementById('schedule-screen'), 'admin-tools-screen': document.getElementById('admin-tools-screen'), 'history-screen': document.getElementById('history-screen') };
+        const screens = { 'login-screen': document.getElementById('login-screen'), 'main-screen': document.getElementById('main-screen'), 'schedule-settings-screen': document.getElementById('schedule-settings-screen'), 'student-list-screen': document.getElementById('student-list-screen'), 'booking-screen': document.getElementById('booking-screen'), 'notifications-screen': document.getElementById('notifications-screen'), 'schedule-screen': document.getElementById('schedule-screen'), 'admin-tools-screen': document.getElementById('admin-tools-screen') };
         const blockModal = {
             overlay: document.getElementById('block-modal-overlay'),
             info: document.getElementById('block-modal-info'),
@@ -258,57 +253,50 @@
         const renderStudentBookingSummary = async () => {
             const summaryDiv = document.getElementById('student-bookings-summary');
             const counterDisplay = document.getElementById('lesson-counter-display');
-            const today = new Date(); today.setHours(0, 0, 0, 0);
+            summaryDiv.innerHTML = '';
+            counterDisplay.innerHTML = '';
+            
             showLoading(true);
-            const { data: bookings, error } = await supabase.from('bookings').select('*').eq('user_code', state.currentUser.code).gte('date', formatDate(today)).order('date').order('start_time');
+            const { data: allBookings, error } = await supabase.from('bookings').select('*').eq('user_code', state.currentUser.code).order('date', { ascending: false }).order('start_time', { ascending: false });
             showLoading(false);
             
-            const count = bookings ? bookings.length : 0;
+            if (error) return console.error("Errore caricamento prenotazioni:", error);
+
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+
+            const futureBookings = allBookings
+                .filter(b => new Date(b.date + 'T00:00:00') >= today)
+                .sort((a, b) => new Date(a.date) - new Date(b.date));
+
+            const pastBookings = allBookings.filter(b => new Date(b.date + 'T00:00:00') < today);
+
+            const futureCount = futureBookings.length;
             const used = state.currentUser.changes_used ?? 0;
             const allowed = state.currentUser.changes_allowed ?? 0;
 
             let counterHTML = '';
-            if (count > 0) {
-                 counterHTML += `<div style="text-align:center; font-size: 1.1rem; color: #333; margin-bottom: 0.5rem; border: 1px solid #eee; padding: 0.75rem; border-radius: 8px; background-color: #f8f9fa;">Hai <strong>${count}</strong> lezioni in programma.</div>`;
+            if (futureCount > 0) {
+                counterHTML += `<div style="text-align:center; font-size: 1.1rem; color: #333; margin-bottom: 0.5rem; border: 1px solid #eee; padding: 0.75rem; border-radius: 8px; background-color: #f8f9fa;">Hai <strong>${futureCount}</strong> lezioni in programma.</div>`;
             }
-             counterHTML += `<div style="text-align:center; font-size: 0.9rem; color: #666; margin-bottom: 1.5rem;">Cambi utilizzati: <strong>${used} / ${allowed}</strong></div>`;
+            counterHTML += `<div style="text-align:center; font-size: 0.9rem; color: #666; margin-bottom: 1.5rem;">Cambi utilizzati: <strong>${used} / ${allowed}</strong></div>`;
             counterDisplay.innerHTML = counterHTML;
 
-            if (error) return console.error("Errore caricamento prenotazioni:", error);
-            if (bookings && bookings.length > 0) {
-                summaryDiv.innerHTML = '<h4>Le Tue Prossime Lezioni</h4>' + bookings.map(booking => {
+            let summaryHtml = '';
+            summaryHtml += '<h4>Le Tue Prossime Lezioni</h4>';
+            if (futureBookings.length > 0) {
+                summaryHtml += futureBookings.map(booking => {
                     const lessonStart = new Date(`${booking.date}T${booking.start_time}`);
                     const canRequestChange = (lessonStart - new Date()) / (1000 * 60 * 60) > 36;
                     return `<div class="booked-slot"><span><strong>${lessonStart.toLocaleDateString('it-IT', {weekday: 'long', day: 'numeric', month: 'long'})}</strong><br><small>Ore: ${formatTime(booking.start_time)} - ${formatTime(booking.end_time)} (${booking.location})</small></span><button class="btn-request-change" data-booking-id="${booking.id}" ${canRequestChange ? '' : 'disabled'}>${canRequestChange ? 'Richiedi Cambio' : 'Scaduto'}</button></div>`;
                 }).join('');
             } else {
-                summaryDiv.innerHTML = "<p style='text-align:center;'>Nessuna lezione futura prenotata.</p>";
-            }
-        };
-        
-        const renderLessonHistory = async () => {
-            const listDiv = document.getElementById('past-bookings-list');
-            listDiv.innerHTML = 'Caricamento...';
-            showLoading(true);
-            const today = new Date();
-            today.setHours(0,0,0,0);
-
-            const { data: bookings, error } = await supabase
-                .from('bookings')
-                .select('*')
-                .eq('user_code', state.currentUser.code)
-                .lt('date', formatDate(today))
-                .order('date', { ascending: false });
-            
-            showLoading(false);
-            if (error) {
-                console.error("Errore caricamento storico:", error);
-                listDiv.innerHTML = '<p>Impossibile caricare lo storico delle lezioni.</p>';
-                return;
+                summaryHtml += "<p style='text-align:center;'>Nessuna lezione futura prenotata.</p>";
             }
 
-            if (bookings && bookings.length > 0) {
-                listDiv.innerHTML = bookings.map(booking => {
+            summaryHtml += '<hr style="margin: 1.5rem 0;"><h4>Storico Lezioni</h4>';
+            if (pastBookings.length > 0) {
+                summaryHtml += pastBookings.map(booking => {
                     const lessonDate = new Date(`${booking.date}T00:00:00`);
                     return `<div class="booked-slot" style="background-color: #f8f9fa; justify-content: flex-start;">
                                 <span style="text-align: left;">
@@ -319,10 +307,11 @@
                             </div>`;
                 }).join('');
             } else {
-                listDiv.innerHTML = "<p style='text-align:center;'>Nessuna lezione passata trovata.</p>";
+                summaryHtml += "<p style='text-align:center;'>Nessuna lezione passata trovata.</p>";
             }
+            summaryDiv.innerHTML = summaryHtml;
         };
-
+        
         const checkStudentReplies = async () => {
             const { data, error } = await supabase.from('notifications').select('*').eq('student_code', state.currentUser.code).eq('status', 'replied');
             if (error || !data || data.length === 0) return;
@@ -542,21 +531,68 @@
                 listDiv.innerHTML = 'Caricamento...'; 
                 showLoading(true);
 
-                const { data: users, error } = await supabase.from('users').select('*').eq('role', 'student').order('name');
-                const { data: pastBookings, error: bookingsError } = await supabase.from('bookings').select('user_code').lt('date', formatDate(new Date()));
+                const [usersRes, bookingsRes] = await Promise.all([
+                    supabase.from('users').select('*').eq('role', 'student').order('name'),
+                    supabase.from('bookings').select('*').order('date', { ascending: false })
+                ]);
                 
                 showLoading(false);
-                if (error || bookingsError) return console.error("Errore caricamento allievi o lezioni:", error, bookingsError);
-
-                const lessonsCountMap = new Map();
-                if (pastBookings) {
-                    for (const booking of pastBookings) {
-                        lessonsCountMap.set(booking.user_code, (lessonsCountMap.get(booking.user_code) || 0) + 1);
-                    }
+                if (usersRes.error || bookingsRes.error) {
+                    return console.error("Errore caricamento allievi o lezioni:", usersRes.error, bookingsRes.error);
                 }
 
+                const users = usersRes.data;
+                const allBookings = bookingsRes.data;
+                
+                const bookingsByUser = allBookings.reduce((acc, booking) => {
+                    if (!acc[booking.user_code]) acc[booking.user_code] = [];
+                    acc[booking.user_code].push(booking);
+                    return acc;
+                }, {});
+
+                const todayStr = formatDate(new Date());
+                const lessonsCountMap = new Map();
+                for (const userCode in bookingsByUser) {
+                    lessonsCountMap.set(userCode, bookingsByUser[userCode].filter(b => b.date < todayStr).length);
+                }
+                
                 listDiv.innerHTML = users.map(student => {
                     const lessonsDone = lessonsCountMap.get(student.code) || 0;
+                    
+                    const studentBookings = bookingsByUser[student.code] || [];
+                    const today = new Date();
+                    today.setHours(0,0,0,0);
+
+                    const futureBookings = studentBookings
+                        .filter(b => new Date(b.date + 'T00:00:00') >= today)
+                        .sort((a,b) => new Date(a.date) - new Date(b.date));
+                    
+                    const pastBookings = studentBookings
+                        .filter(b => new Date(b.date + 'T00:00:00') < today);
+                    
+                    const renderBookingItem = (b) => {
+                        const bookingDate = new Date(b.date + 'T00:00:00');
+                        return `<div class="appointment-item">
+                                    <strong>${bookingDate.toLocaleDateString('it-IT', {weekday: 'short', day: '2-digit', month: 'short'})}</strong> - 
+                                    ${formatTime(b.start_time)} / ${formatTime(b.end_time)} 
+                                    <small>(${b.location})</small>
+                                </div>`;
+                    };
+
+                    let appointmentsHtml = '<h5>Appuntamenti Futuri</h5>';
+                    if (futureBookings.length > 0) {
+                        appointmentsHtml += futureBookings.map(renderBookingItem).join('');
+                    } else {
+                        appointmentsHtml += '<p style="font-size: 0.9rem; text-align: center; color: #666;">Nessun appuntamento futuro.</p>';
+                    }
+
+                    appointmentsHtml += '<h5 style="margin-top: 1.5rem;">Storico Lezioni</h5>';
+                    if (pastBookings.length > 0) {
+                        appointmentsHtml += pastBookings.map(renderBookingItem).join('');
+                    } else {
+                        appointmentsHtml += '<p style="font-size: 0.9rem; text-align: center; color: #666;">Nessuno storico disponibile.</p>';
+                    }
+
                     return `
                     <div class="student-list-item">
                         <div class="student-header">
@@ -571,6 +607,10 @@
                             <div class="student-stats">
                                 <div class="stat-item"><span>${lessonsDone}</span>Lezioni Svolte</div>
                                 <div class="stat-item"><span>${student.changes_used ?? 0} / ${student.changes_allowed ?? 0}</span>Cambi Usati</div>
+                            </div>
+                            <div class="student-appointments">
+                                <h4>Appuntamenti</h4>
+                                ${appointmentsHtml}
                             </div>
                             <div class="form-group">
                                 <label for="notes-${student.id}">Note Private</label>
@@ -873,11 +913,6 @@
             if (id === 'logout-btn') logout();
             if (id.startsWith('back-to-main')) navigateTo('main-screen');
 
-            if (id === 'view-history-btn') {
-                await renderLessonHistory();
-                navigateTo('history-screen');
-            }
-
             if (state.currentUser?.role === 'admin') {
                 if (id === 'manage-students-btn') { await renderStudentList(); navigateTo('student-list-screen'); }
                 if (id === 'manage-schedule-btn') { await renderScheduleSettings(); navigateTo('schedule-settings-screen'); }
@@ -1036,3 +1071,4 @@
     </script>
 </body>
 </html>
+}
