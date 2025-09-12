@@ -800,13 +800,22 @@
 
                 promises.push(supabase.from('schedule_config').upsert({
                     location: '__EXTERNAL_LINKS__',
-                    start_time: JSON.stringify(state.externalLinks)
+                    start_time: JSON.stringify(state.externalLinks),
+                    work_days: [], 
+                    end_time: '00:00:00'
                 }, { onConflict: 'location' }));
                 
                 const results = await Promise.all(promises);
                 showLoading(false);
-                if (results.some(res => res.error)) { alert("Errore nel salvataggio."); console.error(results.map(r=>r.error)); } 
-                else { alert("Impostazioni salvate."); await loadInitialData(); navigateTo('main-screen'); }
+                if (results.some(res => res.error)) { 
+                    alert("Errore nel salvataggio."); 
+                    console.error(results.map(r => r.error).filter(e => e)); 
+                } 
+                else { 
+                    alert("Impostazioni salvate."); 
+                    await loadInitialData(); 
+                    navigateTo('main-screen'); 
+                }
             };
 
             const removeLocationFromDOM = (locationToRemove) => {
