@@ -18,7 +18,7 @@
         label { display: block; margin-bottom: 0.5rem; font-weight: 500; }
         input[type="text"], input[type="date"], input[type="time"], input[type="number"], textarea, select { width: 100%; padding: 0.75rem; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; }
         textarea { min-height: 80px; }
-        .btn, a.btn { display: block; width: 100%; padding: 0.75rem; border: none; border-radius: 4px; font-size: 1rem; font-weight: bold; cursor: pointer; text-align: center; text-decoration: none; margin-top: 0.5rem; box-sizing: border-box; }
+        .btn { display: block; width: 100%; padding: 0.75rem; border: none; border-radius: 4px; font-size: 1rem; font-weight: bold; cursor: pointer; text-align: center; text-decoration: none; margin-top: 0.5rem; }
         .btn-primary { background-color: var(--button-primary-bg); color: var(--button-primary-text); }
         .btn-secondary { background-color: var(--secondary-color); color: white; }
         .btn-danger { background-color: var(--danger-color); color: white; }
@@ -78,10 +78,6 @@
         #block-modal-form .form-group { display: flex; align-items: center; gap: 0.5rem; }
         #block-modal-form .form-group label { flex-shrink: 0; margin-bottom: 0; }
         #block-modal-form .form-group input[type="number"] { width: 70px; }
-        .link-admin-item { display: flex; justify-content: space-between; align-items: center; padding: 0.75rem; background-color: #f8f9fa; border: 1px solid #eee; border-radius: 4px; margin-bottom: 0.5rem; }
-        .link-admin-item .info { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 0.9rem; }
-        .link-admin-item .info small { color: #6c757d; display: block; }
-        .link-admin-item .actions { display: flex; gap: 0.5rem; flex-shrink: 0; margin-left: 1rem; }
     </style>
 </head>
 <body>
@@ -97,10 +93,10 @@
                 <h2 id="welcome-message"></h2>
                 <div id="lesson-counter-display"></div>
                 <div id="student-bookings-summary" style="margin-top: 1.5rem;"></div>
-                <div id="external-links-container" style="margin-top: 1.5rem;"></div>
                 <hr>
                 <p style="text-align:center;">Seleziona una sede per prenotare una nuova lezione:</p>
                 <div id="location-buttons-container"></div>
+                <div id="external-links-container" style="margin-top: 1.5rem; border-top: 1px solid #eee; padding-top: 1rem;"></div>
                 <div id="admin-actions" style="margin-top: 1.5rem;"></div>
                 <button id="logout-btn" class="btn btn-logout">Esci</button>
             </div>
@@ -109,12 +105,24 @@
             <div id="schedule-screen" class="screen"><h2>Orari della Settimana</h2><div id="schedule-header"><button id="prev-week-btn" class="btn btn-secondary btn-sm">&lt; Prec.</button><h4 id="week-label" style="margin:0;"></h4><button id="next-week-btn" class="btn btn-secondary btn-sm">Succ. &gt;</button></div><div id="schedule-grid" style="margin-top: 1rem;"></div><button id="back-to-main-from-schedule-btn" class="btn btn-secondary" style="margin-top: 1rem;">Torna Indietro</button></div>
             <div id="admin-tools-screen" class="screen"><h2>Strumenti Admin</h2><p style="text-align: center; font-size: 0.9rem; color: #6c757d;">Usa questi strumenti per cancellazioni di massa. Le azioni sono irreversibili.</p><div class="admin-tool-card"><h4>Svuota Prenotazioni</h4><div class="form-group"><label for="admin-tools-location">Seleziona Sede</label><select id="admin-tools-location"></select></div><hr><div class="form-group"><label for="reset-day-date">Svuota Giorno Singolo</label><input type="date" id="reset-day-date"><button id="reset-day-btn" class="btn btn-danger">Svuota Giorno</button></div><hr><div class="form-group"><label for="reset-period-start">Svuota Periodo Personalizzato</label><input type="date" id="reset-period-start"><input type="date" id="reset-period-end" style="margin-top: 0.5rem;"><button id="reset-period-btn" class="btn btn-danger">Svuota Periodo</button></div></div><button id="back-to-main-from-admin-tools-btn" class="btn btn-secondary">Torna Indietro</button></div>
             <div id="schedule-settings-screen" class="screen">
-                <h2>Impostazioni</h2>
+                <h2>Impostazioni Calendario</h2>
                 <div id="schedule-settings-content"></div>
-                <div id="external-links-admin-content"></div>
                 <hr>
-                <div class="form-group"><label for="new-location-name">Aggiungi una nuova sede</label><input type="text" id="new-location-name" placeholder="Nome nuova sede"><button id="add-location-btn" class="btn btn-secondary" style="margin-top: 0.5rem;">Aggiungi Sede</button></div>
-                <button id="save-schedule-settings-btn" class="btn btn-primary">Salva Modifiche</button>
+                <div class="form-group">
+                    <label for="new-location-name">Aggiungi una nuova sede</label>
+                    <input type="text" id="new-location-name" placeholder="Nome nuova sede">
+                    <button id="add-location-btn" class="btn btn-secondary" style="margin-top: 0.5rem;">Aggiungi Sede</button>
+                </div>
+                <hr>
+                <h2>Link Esterni Allievi</h2>
+                <div id="external-links-settings-content"></div>
+                <div class="form-group" style="border-top: 1px solid #ddd; padding-top: 1rem; margin-top: 1rem;">
+                    <label>Aggiungi Nuovo Link</label>
+                    <input type="text" id="new-link-name" placeholder="Nome del bottone" style="margin-bottom: 0.5rem;">
+                    <input type="text" id="new-link-url" placeholder="URL (es. https://...)">
+                    <button id="add-link-btn" class="btn btn-info" style="margin-top: 0.5rem;">+ Aggiungi alla lista</button>
+                </div>
+                <button id="save-schedule-settings-btn" class="btn btn-primary">Salva Tutte le Modifiche</button>
                 <button id="back-to-main-from-schedule-settings-btn" class="btn btn-secondary">Torna Indietro</button>
             </div>
             <div id="student-list-screen" class="screen"><h2>Gestione Allievi</h2><button id="create-student-btn" class="btn btn-primary" style="margin-bottom: 1rem;">+ Crea Nuovo Allievo</button><div id="student-list"></div><button id="back-to-main-from-student-list-btn" class="btn btn-secondary" style="margin-top: 1rem;">Torna Indietro</button></div>
@@ -163,8 +171,9 @@
         const supabaseUrl = 'https://esxpbpxdhqijsomqmrvr.supabase.co';
         const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVzeHBicHhkaHFpanNvbXFtcnZyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTUxNjExODYsImV4cCI6MjA3MDczNzE4Nn0.5WuPwviEzanny9ky0IgMIgFo4N83t8dQTUZsbp2wEnk';
         const supabase = window.supabase.createClient(supabaseUrl, supabaseKey);
+        const LINKS_CONFIG_FILE = 'vocalhub_links_config.json';
 
-        let state = { currentUser: null, scheduleConfig: {}, externalLinks: [], currentDate: new Date(), currentLocation: null, selectedDate: null, scheduleCurrentDate: new Date(), calendarPollingInterval: null, locationsToDelete: [] };
+        let state = { currentUser: null, scheduleConfig: {}, currentDate: new Date(), currentLocation: null, selectedDate: null, scheduleCurrentDate: new Date(), calendarPollingInterval: null, locationsToDelete: [], externalLinks: [] };
         state.currentDate.setDate(1);
         const loadingSpinner = document.getElementById('loading-spinner');
         const mainEl = document.querySelector('main');
@@ -210,9 +219,9 @@
                 if (user.role === 'admin') {
                     updateAdminUI();
                 } else {
+                    renderExternalLinks();
                     checkStudentReplies();
                     renderStudentBookingSummary();
-                    renderExternalLinks();
                 }
                 navigateTo('main-screen');
             } else {
@@ -220,35 +229,55 @@
             }
         };
 
+        const loadExternalLinks = async () => {
+            const { data, error } = await supabase.storage.from('sito').download(LINKS_CONFIG_FILE);
+            if (error) {
+                console.warn('File di configurazione link non trovato. Verrà creato al primo salvataggio.', error.message);
+                state.externalLinks = [];
+                return;
+            }
+            try {
+                const links = JSON.parse(await data.text());
+                state.externalLinks = Array.isArray(links) ? links : [];
+            } catch (e) {
+                console.error('Errore nel parsing del file di configurazione link:', e);
+                state.externalLinks = [];
+            }
+        };
+
         const loadInitialData = async () => {
             showLoading(true);
-            const { data, error } = await supabase.from('schedule_config').select('*');
+            const [scheduleRes] = await Promise.all([
+                supabase.from('schedule_config').select('*'),
+                loadExternalLinks()
+            ]);
             showLoading(false);
-            if (error) return console.error("Errore caricamento config calendario:", error);
             
+            const { data, error } = scheduleRes;
+            if (error) return console.error("Errore caricamento config calendario:", error);
             state.scheduleConfig = {};
-            state.externalLinks = [];
-
-            if (data) {
-                const linksConfig = data.find(item => item.location === '__EXTERNAL_LINKS__');
-                if (linksConfig && linksConfig.start_time) {
-                    try {
-                        state.externalLinks = JSON.parse(linksConfig.start_time);
-                    } catch (e) {
-                        console.error("Errore nel parsing dei link esterni:", e);
-                        state.externalLinks = [];
-                    }
-                }
-
-                data.filter(item => item.location !== '__EXTERNAL_LINKS__').forEach(item => {
-                    state.scheduleConfig[item.location] = {
-                        work_days: item.work_days || [],
-                        start_time: item.start_time || '15:00:00',
-                        end_time: item.end_time || '21:00:00'
-                    };
-                });
-            }
+            if (data) data.forEach(item => {
+                state.scheduleConfig[item.location] = {
+                    work_days: item.work_days || [],
+                    start_time: item.start_time || '15:00:00',
+                    end_time: item.end_time || '21:00:00'
+                };
+            });
             renderLocationButtons();
+        };
+        
+        const renderExternalLinks = () => {
+            const container = document.getElementById('external-links-container');
+            container.innerHTML = '';
+            if (state.externalLinks.length > 0) {
+                 let html = '<h4 style="text-align:center; margin-bottom:1rem; color: #333;">Risorse Utili</h4>';
+                 state.externalLinks.forEach(link => {
+                    if (link.name && link.url && link.url.startsWith('http')) {
+                         html += `<a href="${link.url}" target="_blank" rel="noopener noreferrer" class="btn btn-info" style="margin-bottom: 0.5rem; background-color: #6c757d;">${link.name}</a>`;
+                    }
+                 });
+                 container.innerHTML = html;
+            }
         };
 
         const renderLocationButtons = () => {
@@ -268,17 +297,6 @@
             }
         };
 
-        const renderExternalLinks = () => {
-            const container = document.getElementById('external-links-container');
-            container.innerHTML = '';
-            if (state.externalLinks && state.externalLinks.length > 0) {
-                const linksHtml = state.externalLinks.map(link => 
-                    `<a href="${link.url}" target="_blank" rel="noopener noreferrer" class="btn btn-secondary">${link.name}</a>`
-                ).join('');
-                container.innerHTML = `<h4>Link Utili</h4>${linksHtml}`;
-            }
-        };
-
         const updateAdminUI = async () => {
             const adminActionsDiv = document.getElementById('admin-actions');
             const { count } = await supabase.from('notifications').select('*', { count: 'exact', head: true }).eq('status', 'pending');
@@ -287,7 +305,7 @@
 
         const logout = () => {
             navigateTo('login-screen');
-            state = { currentUser: null, scheduleConfig: {}, externalLinks: [], currentDate: new Date(), currentLocation: null, selectedDate: null, scheduleCurrentDate: new Date(), calendarPollingInterval: null, locationsToDelete: [] };
+            state = { currentUser: null, scheduleConfig: {}, currentDate: new Date(), currentLocation: null, selectedDate: null, scheduleCurrentDate: new Date(), calendarPollingInterval: null, locationsToDelete: [], externalLinks: [] };
             state.currentDate.setDate(1);
             document.getElementById('student-code').value = '';
             document.getElementById('admin-actions').innerHTML = '';
@@ -702,20 +720,38 @@
                 await renderStudentList();
             };
 
+            const renderLinksSettings = () => {
+                const contentDiv = document.getElementById('external-links-settings-content');
+                contentDiv.innerHTML = '';
+                if (state.externalLinks.length === 0) {
+                    contentDiv.innerHTML = '<p style="text-align:center; color:#666;">Nessun link configurato.</p>';
+                    return;
+                }
+                contentDiv.innerHTML = state.externalLinks.map((link, index) => `
+                    <div class="admin-tool-card" style="padding: 0.75rem; margin-bottom: 0.5rem; display: flex; justify-content: space-between; align-items: center; background-color: #f8f9fa;">
+                        <div>
+                            <strong>${link.name}</strong><br>
+                            <small style="color:#6c757d;">${link.url}</small>
+                        </div>
+                        <button class="btn btn-danger btn-sm btn-remove-link" data-index="${index}" style="width: auto; margin:0;">&times;</button>
+                    </div>`).join('');
+            };
+
             const renderScheduleSettings = async () => {
                 state.locationsToDelete = [];
                 const contentDiv = document.getElementById('schedule-settings-content');
-                contentDiv.innerHTML = '<h4>Gestione Sedi</h4>';
+                contentDiv.innerHTML = 'Caricamento...';
+                
                 showLoading(true);
+                await loadExternalLinks(); 
                 const { data, error } = await supabase.from('schedule_config').select('*').order('location');
                 showLoading(false);
+
                 if(error) return console.error("Errore caricamento impostazioni:", error);
 
-                data.filter(item => item.location !== '__EXTERNAL_LINKS__').forEach(config => {
-                    addLocationToDOM(config.location, config.work_days, config.start_time, config.end_time)
-                });
-
-                renderLinksAdminList();
+                contentDiv.innerHTML = '';
+                data.forEach(config => addLocationToDOM(config.location, config.work_days, config.start_time, config.end_time));
+                renderLinksSettings();
             };
             
             const addLocationToDOM = (locationName, workDays = [], startTime = '15:00', endTime = '21:00') => {
@@ -723,7 +759,7 @@
                 const daysOfWeek = ['Domenica', 'Lunedì', 'Martedì', 'Mercoledì', 'Giovedì', 'Venerdì', 'Sabato'];
                 let locationHtml = `<div class="admin-tool-card" data-location-block="${locationName}">
                     <div style="display:flex; justify-content:space-between; align-items:center;">
-                        <h5 style="margin:0; text-align:left;">${locationName}</h5>
+                        <h4 style="margin:0;">${locationName}</h4>
                         <button class="btn btn-danger btn-sm btn-remove-location" data-location="${locationName}">&times; Rimuovi</button>
                     </div>
                     <div class="days-checkboxes" data-location="${locationName}" style="display:grid; grid-template-columns:repeat(auto-fit, minmax(100px, 1fr)); gap:0.5rem; margin-top:1rem;">`;
@@ -746,45 +782,14 @@
                 contentDiv.insertAdjacentHTML('beforeend', locationHtml);
             };
 
-            const renderLinksAdminList = () => {
-                const container = document.getElementById('external-links-admin-content');
-                let listHtml = state.externalLinks.map((link, index) => `
-                    <div class="link-admin-item">
-                        <div class="info">
-                            <strong>${link.name}</strong>
-                            <small>${link.url}</small>
-                        </div>
-                        <div class="actions">
-                            <button class="btn btn-secondary btn-sm btn-edit-link" data-index="${index}">Modifica</button>
-                            <button class="btn btn-danger btn-sm btn-delete-link" data-index="${index}">Elimina</button>
-                        </div>
-                    </div>
-                `).join('');
-
-                container.innerHTML = `
-                    <div class="admin-tool-card">
-                        <h4>Gestione Link Esterni</h4>
-                        <div id="links-admin-list">${listHtml}</div>
-                        <hr>
-                        <div class="form-group">
-                            <label for="new-link-name">Nome Pulsante</label>
-                            <input type="text" id="new-link-name" placeholder="Es: Canale YouTube">
-                        </div>
-                        <div class="form-group">
-                            <label for="new-link-url">URL (link completo)</label>
-                            <input type="text" id="new-link-url" placeholder="https://www.youtube.com/...">
-                        </div>
-                        <button id="add-link-btn" class="btn btn-info">Aggiungi Link</button>
-                    </div>
-                `;
-            };
-
             const saveScheduleSettings = async () => {
                 showLoading(true);
                 const promises = [];
+
                 if (state.locationsToDelete.length > 0) {
                     promises.push(supabase.from('schedule_config').delete().in('location', state.locationsToDelete));
                 }
+                
                 const updates = [];
                 document.querySelectorAll('[data-location-block]').forEach(div => {
                     const location = div.dataset.locationBlock;
@@ -794,25 +799,23 @@
                     const end_time = document.getElementById(`end-time-${location}`).value;
                     updates.push({ location, work_days, start_time, end_time });
                 });
+
                 if (updates.length > 0) {
                     promises.push(supabase.from('schedule_config').upsert(updates, { onConflict: 'location' }));
                 }
 
-                promises.push(supabase.from('schedule_config').upsert({
-                    location: '__EXTERNAL_LINKS__',
-                    start_time: JSON.stringify(state.externalLinks),
-                    work_days: [], 
-                    end_time: '00:00:00'
-                }, { onConflict: 'location' }));
-                
+                const linksJsonString = JSON.stringify(state.externalLinks, null, 2);
+                const blob = new Blob([linksJsonString], { type: 'application/json' });
+                promises.push(supabase.storage.from('sito').upload(LINKS_CONFIG_FILE, blob, { cacheControl: '3600', upsert: true, contentType: 'application/json' }));
+
                 const results = await Promise.all(promises);
                 showLoading(false);
+
                 if (results.some(res => res.error)) { 
-                    alert("Errore nel salvataggio."); 
-                    console.error(results.map(r => r.error).filter(e => e)); 
-                } 
-                else { 
-                    alert("Impostazioni salvate."); 
+                    alert("Errore nel salvataggio di una o più impostazioni."); 
+                    console.error(results.map(r=>r.error).filter(Boolean));
+                } else { 
+                    alert("Impostazioni salvate con successo."); 
                     await loadInitialData(); 
                     navigateTo('main-screen'); 
                 }
@@ -903,48 +906,39 @@
              document.getElementById('schedule-settings-screen').addEventListener('click', (e) => {
                 const button = e.target.closest('button');
                 if (!button || button.id.startsWith('back-to-main')) return;
+                
                 if (button.id === 'add-location-btn') {
                     const input = document.getElementById('new-location-name'); const newLocationName = input.value.trim();
                     if (newLocationName && !document.querySelector(`[data-location-block="${newLocationName}"]`)) {
                         addLocationToDOM(newLocationName); input.value = '';
                     } else { alert('Inserisci un nome valido o un nome non già presente.'); }
                 }
-                if (button.id === 'save-schedule-settings-btn') saveScheduleSettings();
-                if (button.classList.contains('btn-remove-location')) removeLocationFromDOM(button.dataset.location);
 
-                if(button.id === 'add-link-btn') {
+                if (button.id === 'add-link-btn') {
                     const nameInput = document.getElementById('new-link-name');
                     const urlInput = document.getElementById('new-link-url');
                     const name = nameInput.value.trim();
                     const url = urlInput.value.trim();
-                    if (name && url) {
-                        try { new URL(url); } catch (_) { alert("L'URL inserito non è valido."); return; }
+                    if (name && url && url.startsWith('http')) {
                         state.externalLinks.push({ name, url });
-                        renderLinksAdminList();
+                        renderLinksSettings();
+                        nameInput.value = '';
+                        urlInput.value = '';
                     } else {
-                        alert("Compila sia il nome che l'URL del link.");
+                        alert("Inserire un nome valido e un URL completo (che inizi con http).");
                     }
                 }
-                if(button.classList.contains('btn-edit-link')) {
-                    const index = parseInt(button.dataset.index);
-                    const link = state.externalLinks[index];
-                    const newName = prompt("Modifica il nome del pulsante:", link.name);
-                    if (newName !== null) {
-                        const newUrl = prompt("Modifica l'URL del link:", link.url);
-                        if (newUrl !== null) {
-                            try { new URL(newUrl); } catch (_) { alert("L'URL inserito non è valido."); return; }
-                            state.externalLinks[index] = { name: newName.trim(), url: newUrl.trim() };
-                            renderLinksAdminList();
-                        }
+
+                if (button.classList.contains('btn-remove-link')) {
+                    const indexToRemove = parseInt(button.dataset.index, 10);
+                    if (!isNaN(indexToRemove) && confirm("Sei sicuro di voler rimuovere questo link dalla lista?")) {
+                        state.externalLinks.splice(indexToRemove, 1);
+                        renderLinksSettings();
                     }
                 }
-                if(button.classList.contains('btn-delete-link')) {
-                    const index = parseInt(button.dataset.index);
-                    if (confirm(`Sei sicuro di voler eliminare il link "${state.externalLinks[index].name}"?`)) {
-                        state.externalLinks.splice(index, 1);
-                        renderLinksAdminList();
-                    }
-                }
+                
+                if (button.id === 'save-schedule-settings-btn') saveScheduleSettings();
+                if (button.classList.contains('btn-remove-location')) removeLocationFromDOM(button.dataset.location);
             });
             return { renderStudentList, renderScheduleSettings };
         };
