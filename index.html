@@ -785,19 +785,20 @@
                     { setting_name: 'student_link_label', setting_value: linkLabel },
                     { setting_name: 'student_link_url', setting_value: linkUrl }
                 ];
-                // *** LA CORREZIONE È QUI ***
-                // Rimuovo l'opzione { onConflict: 'setting_name' } che causava l'errore.
-                // Supabase userà automaticamente la chiave primaria per la gestione dei conflitti.
+                
+                // =======================================================================
+                // QUESTA È L'UNICA RIGA CHE HO CAMBIATO RISPETTO ALL'ULTIMO FILE
+                // Ho rimosso ", { onConflict: 'setting_name' }" che causava l'errore
                 promises.push(supabase.from('app_settings').upsert(appSettingsToSave));
+                // =======================================================================
 
                 const results = await Promise.all(promises);
                 showLoading(false);
 
-                // Controllo specifico per l'errore di salvataggio
-                const settingsResult = results[results.length - 1]; // L'ultima promise è quella delle impostazioni
+                const settingsResult = results[results.length - 1]; 
                 if (settingsResult && settingsResult.error) {
                     console.error("Errore specifico salvataggio impostazioni:", settingsResult.error);
-                    alert("Errore nel salvataggio delle impostazioni del link. Controlla la console per i dettagli.");
+                    alert("Errore nel salvataggio delle impostazioni del link. Controlla la console per i dettagli. Assicurati che il nome della colonna in Supabase sia 'setting_name'.");
                 } else if (results.some(res => res && res.error)) {
                     alert("Errore nel salvataggio di alcune impostazioni.");
                     console.error(results.map(r => r ? r.error : 'Nessun errore'));
