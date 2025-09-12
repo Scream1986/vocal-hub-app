@@ -96,9 +96,7 @@
                 <hr>
                 <p style="text-align:center;">Seleziona una sede per prenotare una nuova lezione:</p>
                 <div id="location-buttons-container"></div>
-                <!-- INIZIO NUOVA SEZIONE LINK ESTERNO -->
                 <div id="student-external-link-container" style="margin-top: 1rem;"></div>
-                <!-- FINE NUOVA SEZIONE LINK ESTERNO -->
                 <div id="admin-actions" style="margin-top: 1.5rem;"></div>
                 <button id="logout-btn" class="btn btn-logout">Esci</button>
             </div>
@@ -107,7 +105,7 @@
             <div id="schedule-screen" class="screen"><h2>Orari della Settimana</h2><div id="schedule-header"><button id="prev-week-btn" class="btn btn-secondary btn-sm">&lt; Prec.</button><h4 id="week-label" style="margin:0;"></h4><button id="next-week-btn" class="btn btn-secondary btn-sm">Succ. &gt;</button></div><div id="schedule-grid" style="margin-top: 1rem;"></div><button id="back-to-main-from-schedule-btn" class="btn btn-secondary" style="margin-top: 1rem;">Torna Indietro</button></div>
             <div id="admin-tools-screen" class="screen"><h2>Strumenti Admin</h2><p style="text-align: center; font-size: 0.9rem; color: #6c757d;">Usa questi strumenti per cancellazioni di massa. Le azioni sono irreversibili.</p><div class="admin-tool-card"><h4>Svuota Prenotazioni</h4><div class="form-group"><label for="admin-tools-location">Seleziona Sede</label><select id="admin-tools-location"></select></div><hr><div class="form-group"><label for="reset-day-date">Svuota Giorno Singolo</label><input type="date" id="reset-day-date"><button id="reset-day-btn" class="btn btn-danger">Svuota Giorno</button></div><hr><div class="form-group"><label for="reset-period-start">Svuota Periodo Personalizzato</label><input type="date" id="reset-period-start"><input type="date" id="reset-period-end" style="margin-top: 0.5rem;"><button id="reset-period-btn" class="btn btn-danger">Svuota Periodo</button></div></div><button id="back-to-main-from-admin-tools-btn" class="btn btn-secondary">Torna Indietro</button></div>
             <div id="schedule-settings-screen" class="screen">
-                <h2>Impostazioni Calendario</h2>
+                <h2>Impostazioni</h2>
                 <div id="schedule-settings-content"></div>
                 <hr>
                 <div class="form-group">
@@ -115,7 +113,6 @@
                     <input type="text" id="new-location-name" placeholder="Nome nuova sede">
                     <button id="add-location-btn" class="btn btn-secondary" style="margin-top: 0.5rem;">Aggiungi Sede</button>
                 </div>
-                <!-- INIZIO NUOVA SEZIONE IMPOSTAZIONI LINK -->
                 <div class="admin-tool-card">
                     <h4>Impostazioni Link per Allievi</h4>
                     <p style="font-size: 0.9rem; color: #666;">Questo link apparirà nella schermata principale di tutti gli allievi.</p>
@@ -128,7 +125,6 @@
                         <input type="url" id="external-link-url" placeholder="https://www.esempio.com/risorse">
                     </div>
                 </div>
-                <!-- FINE NUOVA SEZIONE IMPOSTAZIONI LINK -->
                 <button id="save-schedule-settings-btn" class="btn btn-primary">Salva Tutte le Modifiche</button>
                 <button id="back-to-main-from-schedule-settings-btn" class="btn btn-secondary">Torna Indietro</button>
             </div>
@@ -179,7 +175,6 @@
         const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVzeHBicHhkaHFpanNvbXFtcnZyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTUxNjExODYsImV4cCI6MjA3MDczNzE4Nn0.5WuPwviEzanny9ky0IgMIgFo4N83t8dQTUZsbp2wEnk';
         const supabase = window.supabase.createClient(supabaseUrl, supabaseKey);
 
-        // MODIFICA: Aggiunto externalLink allo stato iniziale
         let state = { currentUser: null, scheduleConfig: {}, currentDate: new Date(), currentLocation: null, selectedDate: null, scheduleCurrentDate: new Date(), calendarPollingInterval: null, locationsToDelete: [], externalLink: { label: '', url: '' } };
         state.currentDate.setDate(1);
         const loadingSpinner = document.getElementById('loading-spinner');
@@ -228,7 +223,6 @@
                 } else { 
                     checkStudentReplies(); 
                     renderStudentBookingSummary(); 
-                    // MODIFICA: Mostra il link esterno per l'allievo
                     renderStudentExternalLink();
                 }
                 navigateTo('main-screen');
@@ -239,10 +233,9 @@
 
         const loadInitialData = async () => {
             showLoading(true);
-            // MODIFICA: Carica in parallelo sia le impostazioni delle sedi sia quelle del link
             const [scheduleRes, settingsRes] = await Promise.all([
                 supabase.from('schedule_config').select('*'),
-                supabase.from('app_settings').select('*') // Carica dalla nuova tabella
+                supabase.from('app_settings').select('*')
             ]);
             showLoading(false);
 
@@ -269,7 +262,6 @@
             renderLocationButtons();
         };
         
-        // NUOVA FUNZIONE: per mostrare il bottone link all'allievo
         const renderStudentExternalLink = () => {
             const container = document.getElementById('student-external-link-container');
             container.innerHTML = '';
@@ -277,8 +269,8 @@
                 const linkBtn = document.createElement('a');
                 linkBtn.href = state.externalLink.url;
                 linkBtn.textContent = state.externalLink.label;
-                linkBtn.className = 'btn btn-info'; // Usiamo un colore diverso per distinguerlo
-                linkBtn.target = '_blank'; // Apre in una nuova scheda
+                linkBtn.className = 'btn btn-info'; 
+                linkBtn.target = '_blank';
                 linkBtn.rel = 'noopener noreferrer';
                 container.appendChild(linkBtn);
             }
@@ -308,7 +300,6 @@
         };
 
         const logout = () => {
-            // MODIFICA: Svuota anche il contenitore del link esterno
             document.getElementById('student-external-link-container').innerHTML = '';
             navigateTo('login-screen');
             state = { currentUser: null, scheduleConfig: {}, currentDate: new Date(), currentLocation: null, selectedDate: null, scheduleCurrentDate: new Date(), calendarPollingInterval: null, locationsToDelete: [], externalLink: { label: '', url: '' } };
@@ -730,7 +721,6 @@
                 const contentDiv = document.getElementById('schedule-settings-content');
                 contentDiv.innerHTML = 'Caricamento...';
                 showLoading(true);
-                // NOTA: I dati del link esterno sono già stati caricati in loadInitialData()
                 const { data, error } = await supabase.from('schedule_config').select('*').order('location');
                 showLoading(false);
                 if(error) return console.error("Errore caricamento impostazioni:", error);
@@ -738,7 +728,6 @@
                 contentDiv.innerHTML = '';
                 if (data) data.forEach(config => addLocationToDOM(config.location, config.work_days, config.start_time, config.end_time));
 
-                // MODIFICA: Popola i campi del link esterno
                 document.getElementById('external-link-label').value = state.externalLink.label || '';
                 document.getElementById('external-link-url').value = state.externalLink.url || '';
             };
@@ -790,19 +779,33 @@
                     promises.push(supabase.from('schedule_config').upsert(updates, { onConflict: 'location' }));
                 }
 
-                // MODIFICA: Aggiunge il salvataggio delle impostazioni del link
                 const linkLabel = document.getElementById('external-link-label').value.trim();
                 const linkUrl = document.getElementById('external-link-url').value.trim();
                 const appSettingsToSave = [
                     { setting_name: 'student_link_label', setting_value: linkLabel },
                     { setting_name: 'student_link_url', setting_value: linkUrl }
                 ];
-                promises.push(supabase.from('app_settings').upsert(appSettingsToSave, { onConflict: 'setting_name' }));
+                // *** LA CORREZIONE È QUI ***
+                // Rimuovo l'opzione { onConflict: 'setting_name' } che causava l'errore.
+                // Supabase userà automaticamente la chiave primaria per la gestione dei conflitti.
+                promises.push(supabase.from('app_settings').upsert(appSettingsToSave));
 
                 const results = await Promise.all(promises);
                 showLoading(false);
-                if (results.some(res => res.error)) { alert("Errore nel salvataggio."); console.error(results.map(r=>r.error)); } 
-                else { alert("Impostazioni salvate."); await loadInitialData(); navigateTo('main-screen'); }
+
+                // Controllo specifico per l'errore di salvataggio
+                const settingsResult = results[results.length - 1]; // L'ultima promise è quella delle impostazioni
+                if (settingsResult && settingsResult.error) {
+                    console.error("Errore specifico salvataggio impostazioni:", settingsResult.error);
+                    alert("Errore nel salvataggio delle impostazioni del link. Controlla la console per i dettagli.");
+                } else if (results.some(res => res && res.error)) {
+                    alert("Errore nel salvataggio di alcune impostazioni.");
+                    console.error(results.map(r => r ? r.error : 'Nessun errore'));
+                } else {
+                    alert("Impostazioni salvate con successo.");
+                    await loadInitialData();
+                    navigateTo('main-screen');
+                }
             };
 
             const removeLocationFromDOM = (locationToRemove) => {
@@ -1155,3 +1158,4 @@
     </script>
 </body>
 </html>
+
