@@ -171,7 +171,7 @@
         const supabaseUrl = 'https://esxpbpxdhqijsomqmrvr.supabase.co';
         const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVzeHBicHhkaHFpanNvbXFtcnZyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTUxNjExODYsImV4cCI6MjA3MDczNzE4Nn0.5WuPwviEzanny9ky0IgMIgFo4N83t8dQTUZsbp2wEnk';
         const supabase = window.supabase.createClient(supabaseUrl, supabaseKey);
-        const LINKS_CONFIG_FILE = 'vocalhub_links_config.json';
+        const LINKS_STORAGE_LOCATION = '__EXTERNAL_LINKS_CONFIG__';
 
         let state = { currentUser: null, scheduleConfig: {}, currentDate: new Date(), currentLocation: null, selectedDate: null, scheduleCurrentDate: new Date(), calendarPollingInterval: null, locationsToDelete: [], externalLinks: [] };
         state.currentDate.setDate(1);
@@ -228,41 +228,51 @@
                 alert('Codice non valido. Riprova.');
             }
         };
-
+        
         const loadExternalLinks = async () => {
-            const { data, error } = await supabase.storage.from('sito').download(LINKS_CONFIG_FILE);
-            if (error) {
-                console.warn('File di configurazione link non trovato. Verrà creato al primo salvataggio.', error.message);
+            const { data, error } = await supabase
+                .from('schedule_config')
+                .select('work_days')
+                .eq('location', LINKS_STORAGE_LOCATION)
+                .single();
+
+            if (error || !data || !data.work_days || data.work_days.length === 0) {
+                console.warn('Configurazione link non trovata. Verrà creata al primo salvataggio.');
                 state.externalLinks = [];
                 return;
             }
+            
             try {
-                const links = JSON.parse(await data.text());
+                const jsonString = String.fromCharCode.apply(null, data.work_days);
+                const links = JSON.parse(jsonString);
                 state.externalLinks = Array.isArray(links) ? links : [];
             } catch (e) {
-                console.error('Errore nel parsing del file di configurazione link:', e);
+                console.error('Errore nel parsing della configurazione dei link:', e);
                 state.externalLinks = [];
             }
         };
 
         const loadInitialData = async () => {
             showLoading(true);
-            const [scheduleRes] = await Promise.all([
-                supabase.from('schedule_config').select('*'),
-                loadExternalLinks()
-            ]);
+            const { data, error } = await supabase.from('schedule_config').select('*');
+            await loadExternalLinks();
             showLoading(false);
             
-            const { data, error } = scheduleRes;
             if (error) return console.error("Errore caricamento config calendario:", error);
+            
             state.scheduleConfig = {};
-            if (data) data.forEach(item => {
-                state.scheduleConfig[item.location] = {
-                    work_days: item.work_days || [],
-                    start_time: item.start_time || '15:00:00',
-                    end_time: item.end_time || '21:00:00'
-                };
-            });
+            if (data) {
+                data.forEach(item => {
+                    // Filter out the special config row from the actual locations
+                    if (item.location !== LINKS_STORAGE_LOCATION) {
+                        state.scheduleConfig[item.location] = {
+                            work_days: item.work_days || [],
+                            start_time: item.start_time || '15:00:00',
+                            end_time: item.end_time || '21:00:00'
+                        };
+                    }
+                });
+            }
             renderLocationButtons();
         };
         
@@ -743,14 +753,18 @@
                 contentDiv.innerHTML = 'Caricamento...';
                 
                 showLoading(true);
-                await loadExternalLinks(); 
                 const { data, error } = await supabase.from('schedule_config').select('*').order('location');
+                await loadExternalLinks(); 
                 showLoading(false);
 
                 if(error) return console.error("Errore caricamento impostazioni:", error);
 
                 contentDiv.innerHTML = '';
-                data.forEach(config => addLocationToDOM(config.location, config.work_days, config.start_time, config.end_time));
+                if (data) {
+                    data.filter(item => item.location !== LINKS_STORAGE_LOCATION).forEach(config => {
+                        addLocationToDOM(config.location, config.work_days, config.start_time, config.end_time);
+                    });
+                }
                 renderLinksSettings();
             };
             
@@ -801,23 +815,37 @@
                 });
 
                 if (updates.length > 0) {
-                    promises.push(supabase.from('schedule_config').upsert(updates, { onConflict: 'location' }));
+                    promises.push(supabase.from('schedule_config').upsert(updates));
                 }
 
-                const linksJsonString = JSON.stringify(state.externalLinks, null, 2);
-                const blob = new Blob([linksJsonString], { type: 'application/json' });
-                promises.push(supabase.storage.from('sito').upload(LINKS_CONFIG_FILE, blob, { cacheControl: '3600', upsert: true, contentType: 'application/json' }));
+                try {
+                    const jsonString = JSON.stringify(state.externalLinks);
+                    const charCodeArray = [];
+                    for (let i = 0; i < jsonString.length; i++) {
+                        charCodeArray.push(jsonString.charCodeAt(i));
+                    }
+                    const linksConfigPayload = {
+                        location: LINKS_STORAGE_LOCATION,
+                        work_days: charCodeArray,
+                        start_time: null,
+                        end_time: null
+                    };
+                    promises.push(supabase.from('schedule_config').upsert(linksConfigPayload));
+                } catch (e) {
+                    console.error("Errore durante la preparazione dei dati dei link:", e);
+                }
 
                 const results = await Promise.all(promises);
                 showLoading(false);
 
-                if (results.some(res => res.error)) { 
-                    alert("Errore nel salvataggio di una o più impostazioni."); 
-                    console.error(results.map(r=>r.error).filter(Boolean));
-                } else { 
-                    alert("Impostazioni salvate con successo."); 
-                    await loadInitialData(); 
-                    navigateTo('main-screen'); 
+                const saveErrors = results.map(r => r.error).filter(Boolean);
+                if (saveErrors.length > 0) {
+                    alert("Errore nel salvataggio di una o più impostazioni.");
+                    console.error("Dettagli errori Supabase:", saveErrors);
+                } else {
+                    alert("Impostazioni salvate con successo.");
+                    await loadInitialData();
+                    navigateTo('main-screen');
                 }
             };
 
