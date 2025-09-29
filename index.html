@@ -424,7 +424,7 @@
             if (bookingsRes.error || rulesRes.error) return console.error("Errore caricamento dati:", bookingsRes.error, rulesRes.error);
 
             const bookings = bookingsRes.data;
-            const rules = rulesRes.data.filter(rule => !rule.end_date || new Date(rule.end_date) >= state.selectedDate);
+            const allRules = rulesRes.data.filter(rule => !rule.end_date || new Date(rule.end_date) >= state.selectedDate);
 
             const startHour = parseInt(locationConfig.start_time.split(':')[0]);
             const endHour = parseInt(locationConfig.end_time.split(':')[0]);
@@ -435,7 +435,8 @@
                     slotsMap.set(time, { status: 'free', booking: null });
                 }
             }
-
+            
+            // *** LOGICA CORRETTA PER APPLICARE LE REGOLE ***
             const applyRule = (ruleType, startTime, endTime) => {
                 for (const [time, slot] of slotsMap.entries()) {
                     if (time >= startTime && time < endTime) {
@@ -443,8 +444,16 @@
                     }
                 }
             };
-            rules.filter(r => r.rule_type === 'BLOCK').forEach(r => applyRule('BLOCK', formatTime(r.start_time), formatTime(r.end_time)));
-            rules.filter(r => r.rule_type === 'UNBLOCK').forEach(r => applyRule('UNBLOCK', formatTime(r.start_time), formatTime(r.end_time)));
+
+            // Separiamo le regole ricorrenti da quelle specifiche per il giorno
+            const recurringRules = allRules.filter(r => r.start_date !== r.end_date || r.start_date !== dateStr);
+            const oneOffRules = allRules.filter(r => r.start_date === r.end_date && r.start_date === dateStr);
+
+            // Applichiamo prima le regole generiche (ricorrenti)
+            recurringRules.forEach(r => applyRule(r.rule_type, formatTime(r.start_time), formatTime(r.end_time)));
+            
+            // Poi applichiamo le regole specifiche per il giorno, che avranno la precedenza
+            oneOffRules.forEach(r => applyRule(r.rule_type, formatTime(r.start_time), formatTime(r.end_time)));
 
             bookings.forEach(booking => {
                 for (const [time, slot] of slotsMap.entries()) {
@@ -622,18 +631,12 @@
 
             showLoading(true);
 
-            const { data: conflictingBookings, error: checkError } = await supabase
-                .from('bookings')
-                .select('id')
-                .eq('date', dateStr)
-                .eq('location', state.currentLocation)
-                .lt('start_time', endTime)
-                .gt('end_time', startTime);
+            // Per la prenotazione singola, usiamo la logica più robusta di isSlotAvailable
+            const available = await isSlotAvailable(state.selectedDate, startTime, endTime, state.currentLocation);
 
-            if (checkError || (conflictingBookings && conflictingBookings.length > 0)) {
+            if (!available) {
                 showLoading(false);
                 alert("Errore: l'intervallo di tempo selezionato non è più disponibile. La visualizzazione verrà aggiornata.");
-                console.error(checkError);
                 await renderTimeSlots(dateStr, false);
                 return;
             }
@@ -657,10 +660,11 @@
             }
         };
 
-        // NUOVA FUNZIONE PER VERIFICARE LA DISPONIBILITÀ DI UN SINGOLO SLOT FUTURO
         const isSlotAvailable = async (checkDate, startTime, endTime, location) => {
             const dateStr = formatDate(checkDate);
+            if (!dateStr) return false;
             const dayOfWeek = checkDate.getDay();
+            const locationConfig = state.scheduleConfig[location];
 
             const [bookingsRes, rulesRes] = await Promise.all([
                 supabase.from('bookings').select('id').eq('date', dateStr).eq('location', location).lt('start_time', endTime).gt('end_time', startTime),
@@ -673,19 +677,43 @@
             }
             if (bookingsRes.data.length > 0) return false;
 
-            const rules = rulesRes.data.filter(rule => !rule.end_date || new Date(rule.end_date) >= checkDate);
-            let isBlocked = false;
-            
-            const relevantBlock = rules.find(r => r.rule_type === 'BLOCK' && startTime < formatTime(r.end_time) && endTime > formatTime(r.start_time));
-            if (relevantBlock) {
-                isBlocked = true;
-                const relevantUnblock = rules.find(r => r.rule_type === 'UNBLOCK' && startTime < formatTime(r.end_time) && endTime > formatTime(r.start_time));
-                if (relevantUnblock) isBlocked = false;
+            const tempSlotsMap = new Map();
+            const startHour = parseInt(locationConfig.start_time.split(':')[0]);
+            const endHour = parseInt(locationConfig.end_time.split(':')[0]);
+            for (let h = startHour; h < endHour; h++) {
+                for (let m = 0; m < 60; m += 15) {
+                    const time = `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`;
+                    tempSlotsMap.set(time, { status: 'free' });
+                }
             }
-            return !isBlocked;
+
+            const applyTempRule = (ruleType, rStartTime, rEndTime) => {
+                for (const [time, slot] of tempSlotsMap.entries()) {
+                    if (time >= rStartTime && time < rEndTime) {
+                        slot.status = (ruleType === 'BLOCK') ? 'blocked' : 'free';
+                    }
+                }
+            };
+            
+            const allRules = rulesRes.data.filter(rule => !rule.end_date || new Date(rule.end_date) >= checkDate);
+            const recurringRules = allRules.filter(r => r.start_date !== r.end_date || r.start_date !== dateStr);
+            const oneOffRules = allRules.filter(r => r.start_date === r.end_date && r.start_date === dateStr);
+            
+            recurringRules.forEach(r => applyTempRule(r.rule_type, formatTime(r.start_time), formatTime(r.end_time)));
+            oneOffRules.forEach(r => applyTempRule(r.rule_type, formatTime(r.start_time), formatTime(r.end_time)));
+
+            let timespanIsFree = true;
+            for (const [time, slot] of tempSlotsMap.entries()) {
+                if (time >= startTime && time < endTime) {
+                    if (slot.status !== 'free') {
+                        timespanIsFree = false;
+                        break;
+                    }
+                }
+            }
+            return timespanIsFree;
         };
 
-        // NUOVA FUNZIONE PER GESTIRE LA PRENOTAZIONE RICORRENTE
         const handleRecurringBooking = async () => {
             const studentCode = adminBookModal.studentSelect.value;
             const duration = parseInt(adminBookModal.durationSelect.value);
@@ -708,7 +736,7 @@
             const bookingsToInsert = [];
             const skippedDates = [];
             let iterations = 0;
-            const maxIterations = 52; // Safety break after 1 year of weeks
+            const maxIterations = 52;
 
             const startDateTime = new Date(`${formatDate(currentCheckDate)}T${startTime}`);
             const endDateTime = new Date(startDateTime.getTime() + duration * 60000);
