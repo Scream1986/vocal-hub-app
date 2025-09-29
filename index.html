@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="it">
 <head>
-    <meta charset="UTF--8">
+    <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Vocal Hub Online</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -160,6 +160,15 @@
                         <option value="60">60 minuti</option>
                     </select>
                 </div>
+                <hr>
+                <div class="form-group" style="flex-direction: row; align-items: center; display: flex;">
+                    <input type="checkbox" id="admin-book-recurring" style="width: auto; margin-right: 10px;">
+                    <label for="admin-book-recurring" style="margin: 0;">Rendi questa lezione ricorrente (settimanale)</label>
+                </div>
+                <div id="recurring-options" class="form-group" style="display: none;">
+                    <label for="admin-book-lessons-count">Numero di lezioni da prenotare</label>
+                    <input type="number" id="admin-book-lessons-count" min="1" value="8">
+                </div>
                 <div class="modal-buttons">
                     <button type="button" id="admin-book-modal-cancel" class="btn btn-secondary">Annulla</button>
                     <button type="submit" id="admin-book-modal-save" class="btn btn-primary">Assegna</button>
@@ -190,7 +199,6 @@
             blockBtn: document.getElementById('block-modal-block')
         };
         
-        // NUOVI RIFERIMENTI PER LA FINESTRA MODALE ADMIN
         const adminBookModal = {
             overlay: document.getElementById('admin-book-modal-overlay'),
             info: document.getElementById('admin-book-modal-info'),
@@ -198,7 +206,10 @@
             studentSelect: document.getElementById('admin-book-student'),
             durationSelect: document.getElementById('admin-book-duration'),
             saveBtn: document.getElementById('admin-book-modal-save'),
-            cancelBtn: document.getElementById('admin-book-modal-cancel')
+            cancelBtn: document.getElementById('admin-book-modal-cancel'),
+            recurringCheckbox: document.getElementById('admin-book-recurring'),
+            recurringOptions: document.getElementById('recurring-options'),
+            lessonsCountInput: document.getElementById('admin-book-lessons-count')
         };
 
         const showLoading = (show) => { loadingSpinner.style.display = show ? 'block' : 'none'; };
@@ -209,6 +220,7 @@
             state.currentScreen = screenId;
         };
         const formatDate = (date) => {
+            if (!(date instanceof Date) || isNaN(date)) return null;
             const year = date.getFullYear();
             const month = (date.getMonth() + 1).toString().padStart(2, '0');
             const day = date.getDate().toString().padStart(2, '0');
@@ -561,9 +573,9 @@
             }
         };
         
-        // NUOVA FUNZIONE PER APRIRE LA FINESTRA DI ASSEGNAZIONE ADMIN
         const openAdminBookModal = async (startTime) => {
             adminBookModal.form.reset();
+            adminBookModal.recurringOptions.style.display = 'none';
             adminBookModal.form.dataset.startTime = startTime;
             adminBookModal.info.textContent = `Giorno: ${state.selectedDate.toLocaleDateString('it-IT', {weekday: 'long'})} | Inizio ore: ${startTime}`;
             adminBookModal.studentSelect.innerHTML = '<option value="">Caricamento...</option>';
@@ -586,9 +598,14 @@
             adminBookModal.overlay.style.display = 'flex';
         };
 
-        // NUOVA FUNZIONE PER GESTIRE IL SALVATAGGIO DELLA PRENOTAZIONE DA PARTE DELL'ADMIN
         const handleAdminSaveBooking = async (e) => {
             e.preventDefault();
+            
+            if (adminBookModal.recurringCheckbox.checked) {
+                await handleRecurringBooking();
+                return;
+            }
+
             const studentCode = adminBookModal.studentSelect.value;
             const duration = parseInt(adminBookModal.durationSelect.value);
             const startTime = adminBookModal.form.dataset.startTime;
@@ -634,11 +651,114 @@
                 alert("Errore durante la creazione della prenotazione.");
                 console.error(insertError);
             } else {
-                alert("Prenotazione assegnata con successo!");
+                alert("Prenotazione singola assegnata con successo!");
                 adminBookModal.overlay.style.display = 'none';
                 await renderTimeSlots(dateStr, false);
             }
         };
+
+        // NUOVA FUNZIONE PER VERIFICARE LA DISPONIBILITÀ DI UN SINGOLO SLOT FUTURO
+        const isSlotAvailable = async (checkDate, startTime, endTime, location) => {
+            const dateStr = formatDate(checkDate);
+            const dayOfWeek = checkDate.getDay();
+
+            const [bookingsRes, rulesRes] = await Promise.all([
+                supabase.from('bookings').select('id').eq('date', dateStr).eq('location', location).lt('start_time', endTime).gt('end_time', startTime),
+                supabase.from('availability_rules').select('*').eq('location', location).eq('day_of_week', dayOfWeek).lte('start_date', dateStr)
+            ]);
+            
+            if (bookingsRes.error || rulesRes.error) {
+                console.error("Errore nel controllo disponibilità:", bookingsRes.error, rulesRes.error);
+                return false; 
+            }
+            if (bookingsRes.data.length > 0) return false;
+
+            const rules = rulesRes.data.filter(rule => !rule.end_date || new Date(rule.end_date) >= checkDate);
+            let isBlocked = false;
+            
+            const relevantBlock = rules.find(r => r.rule_type === 'BLOCK' && startTime < formatTime(r.end_time) && endTime > formatTime(r.start_time));
+            if (relevantBlock) {
+                isBlocked = true;
+                const relevantUnblock = rules.find(r => r.rule_type === 'UNBLOCK' && startTime < formatTime(r.end_time) && endTime > formatTime(r.start_time));
+                if (relevantUnblock) isBlocked = false;
+            }
+            return !isBlocked;
+        };
+
+        // NUOVA FUNZIONE PER GESTIRE LA PRENOTAZIONE RICORRENTE
+        const handleRecurringBooking = async () => {
+            const studentCode = adminBookModal.studentSelect.value;
+            const duration = parseInt(adminBookModal.durationSelect.value);
+            const startTime = adminBookModal.form.dataset.startTime;
+            const totalLessonsToBook = parseInt(adminBookModal.lessonsCountInput.value);
+
+            if (!studentCode || !totalLessonsToBook || totalLessonsToBook < 1) {
+                alert("Seleziona un allievo e inserisci un numero di lezioni valido.");
+                return;
+            }
+            
+            if (!confirm(`Stai per prenotare ${totalLessonsToBook} lezioni per l'allievo selezionato, ogni settimana a partire dal ${state.selectedDate.toLocaleDateString('it-IT')}. Le settimane non disponibili verranno saltate. Confermi?`)) {
+                return;
+            }
+
+            showLoading(true);
+
+            let lessonsBookedCount = 0;
+            let currentCheckDate = new Date(state.selectedDate);
+            const bookingsToInsert = [];
+            const skippedDates = [];
+            let iterations = 0;
+            const maxIterations = 52; // Safety break after 1 year of weeks
+
+            const startDateTime = new Date(`${formatDate(currentCheckDate)}T${startTime}`);
+            const endDateTime = new Date(startDateTime.getTime() + duration * 60000);
+            const endTime = endDateTime.toTimeString().substring(0, 5);
+
+            while (lessonsBookedCount < totalLessonsToBook && iterations < maxIterations) {
+                const available = await isSlotAvailable(currentCheckDate, startTime, endTime, state.currentLocation);
+                
+                if (available) {
+                    bookingsToInsert.push({
+                        user_code: studentCode,
+                        location: state.currentLocation,
+                        date: formatDate(currentCheckDate),
+                        start_time: startTime,
+                        end_time: endDateTime.toTimeString().substring(0, 8)
+                    });
+                    lessonsBookedCount++;
+                } else {
+                    skippedDates.push(currentCheckDate.toLocaleDateString('it-IT'));
+                }
+                
+                currentCheckDate.setDate(currentCheckDate.getDate() + 7);
+                iterations++;
+            }
+
+            if (bookingsToInsert.length > 0) {
+                const { error } = await supabase.from('bookings').insert(bookingsToInsert);
+                if (error) {
+                    showLoading(false);
+                    alert("Si è verificato un errore durante l'inserimento delle lezioni. Alcune potrebbero non essere state salvate.");
+                    console.error(error);
+                    return;
+                }
+            }
+
+            showLoading(false);
+            
+            let summaryMessage = `Operazione completata!\n\nLezioni prenotate con successo: ${lessonsBookedCount} / ${totalLessonsToBook}.\n`;
+            if (skippedDates.length > 0) {
+                summaryMessage += `\nDate saltate per indisponibilità:\n- ${skippedDates.join('\n- ')}`;
+            }
+            if (iterations >= maxIterations && lessonsBookedCount < totalLessonsToBook) {
+                summaryMessage += `\n\nAttenzione: La ricerca si è interrotta dopo aver controllato 52 settimane senza trovare tutti gli slot necessari.`;
+            }
+
+            alert(summaryMessage);
+            adminBookModal.overlay.style.display = 'none';
+            await renderTimeSlots(formatDate(state.selectedDate));
+        };
+
 
         const studentListAndSettingsFunctions = () => {
              const renderStudentList = async () => {
@@ -1096,7 +1216,6 @@
         
         document.getElementById('slots-content').addEventListener('click', async (e) => {
             const target = e.target;
-            // Logica per lo studente
             if (target.classList.contains('btn-book')) {
                 const startTime = target.dataset.time, duration = parseInt(target.dataset.duration), dateStr = formatDate(state.selectedDate);
                 if (confirm(`Confermi la prenotazione per ${state.selectedDate.toLocaleDateString('it-IT')} alle ${startTime} per ${duration} minuti?`)) {
@@ -1107,7 +1226,6 @@
                     if (error) { alert("Errore durante la prenotazione."); } else { alert("Prenotazione confermata!"); await renderTimeSlots(dateStr, false); await renderStudentBookingSummary(); }
                 }
             } 
-            // Logica per l'admin
             else if (state.currentUser.role === 'admin' && target.classList.contains('time-slot')) {
                 const time = target.dataset.time;
                 const isBlocked = target.classList.contains('blocked');
@@ -1123,10 +1241,10 @@
                         showLoading(false);
                         openBlockModal(time, false);
                     }
-                } else if (isFree) { // MODIFICA: se lo slot è libero, apri la modale di assegnazione
+                } else if (isFree) {
                     openAdminBookModal(time);
                 }
-                 else { // Se è bloccato o altro stato
+                 else { 
                      openBlockModal(time, isBlocked);
                 }
             }
@@ -1189,9 +1307,11 @@
         document.getElementById('user-modal-cancel').addEventListener('click', () => { document.getElementById('user-modal-overlay').style.display = 'none'; });
         document.getElementById('block-modal-cancel').addEventListener('click', () => { blockModal.overlay.style.display = 'none'; });
     
-        // NUOVI LISTENER PER LA MODALE ADMIN
         adminBookModal.form.addEventListener('submit', handleAdminSaveBooking);
         adminBookModal.cancelBtn.addEventListener('click', () => { adminBookModal.overlay.style.display = 'none'; });
+        adminBookModal.recurringCheckbox.addEventListener('change', (e) => {
+            adminBookModal.recurringOptions.style.display = e.target.checked ? 'block' : 'none';
+        });
 
         navigateTo('login-screen');
     });
