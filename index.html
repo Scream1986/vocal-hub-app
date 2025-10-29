@@ -179,6 +179,12 @@
 
 
     <script>
+    // <!-- 
+    // NOTA BENE: Per far funzionare la nuova funzione ASSENZE,
+    // devi aggiungere una colonna 'is_absent' alla tua tabella 'bookings' in Supabase.
+    // Tipo: boolean
+    // Valore Predefinito (Default Value): false
+    // -->
     document.addEventListener('DOMContentLoaded', () => {
         const supabaseUrl = 'https://esxpbpxdhqijsomqmrvr.supabase.co';
         const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVzeHBicHhkaHFpanNvbXFtcnZyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTUxNjExODYsImV4cCI6MjA3MDczNzE4Nn0.5WuPwviEzanny9ky0IgMIgFo4N83t8dQTUZsbp2wEnk';
@@ -346,12 +352,14 @@
             if (pastBookings.length > 0) {
                 summaryHtml += pastBookings.map(booking => {
                     const lessonDate = new Date(`${booking.date}T00:00:00`);
-                    return `<div class="booked-slot" style="background-color: #f8f9fa; justify-content: flex-start;">
+                    // <!-- MODIFICA: Aggiunto stile e label per le assenze -->
+                    return `<div class="booked-slot" style="background-color: ${booking.is_absent ? '#ffebee' : '#f8f9fa'}; justify-content: space-between; align-items: center; border-left: 3px solid ${booking.is_absent ? 'var(--danger-color)' : '#eee'};">
                                 <span style="text-align: left;">
                                     <strong>${lessonDate.toLocaleDateString('it-IT', {weekday: 'long', day: 'numeric', month: 'long', year: 'numeric'})}</strong>
                                     <br>
                                     <small>Ore: ${formatTime(booking.start_time)} - ${formatTime(booking.end_time)} (${booking.location})</small>
                                 </span>
+                                ${booking.is_absent ? '<span style="font-weight: bold; color: var(--danger-color); margin-left: 1rem; font-size: 0.9rem;">ASSENZA</span>' : ''}
                             </div>`;
                 }).join('');
             } else {
@@ -796,7 +804,7 @@
 
                 const [usersRes, bookingsRes] = await Promise.all([
                     supabase.from('users').select('*').eq('role', 'student').order('name'),
-                    supabase.from('bookings').select('*').order('date', { ascending: false })
+                    supabase.from('bookings').select('*').order('date', { ascending: false }) // '*' include la nuova colonna 'is_absent'
                 ]);
                 
                 showLoading(false);
@@ -816,7 +824,8 @@
                 const todayStr = formatDate(new Date());
                 const lessonsCountMap = new Map();
                 for (const userCode in bookingsByUser) {
-                    lessonsCountMap.set(userCode, bookingsByUser[userCode].filter(b => b.date < todayStr).length);
+                    // Contiamo solo le lezioni svolte E non segnate come assenti
+                    lessonsCountMap.set(userCode, bookingsByUser[userCode].filter(b => b.date < todayStr && !b.is_absent).length);
                 }
                 
                 listDiv.innerHTML = users.map(student => {
@@ -833,28 +842,46 @@
                     const pastBookings = studentBookings
                         .filter(b => new Date(b.date + 'T00:00:00') < today);
                     
-                    const renderBookingItem = (b) => {
+                    // <!-- MODIFICA: Aggiornata renderBookingItem per gestire le assenze -->
+                    const renderBookingItem = (b, isPast = false) => {
                         const bookingDate = new Date(b.date + 'T00:00:00');
-                        return `<div class="appointment-item">
-                                    <strong>${bookingDate.toLocaleDateString('it-IT', {weekday: 'short', day: '2-digit', month: 'short'})}</strong> - 
-                                    ${formatTime(b.start_time)} / ${formatTime(b.end_time)} 
-                                    <small>(${b.location})</small>
+                        let absenceButton = '';
+                        if (isPast) {
+                            // Aggiungiamo il pulsante per segnare/annullare l'assenza
+                            absenceButton = `<button 
+                                                class="btn ${b.is_absent ? 'btn-info' : 'btn-warning'} btn-sm btn-mark-absence" 
+                                                data-booking-id="${b.id}" 
+                                                data-is-absent="${b.is_absent || false}" 
+                                                style="margin-left: 10px; padding: 0.2rem 0.4rem; font-size: 0.7rem; flex-shrink: 0;">
+                                                ${b.is_absent ? 'Annulla Assenza' : 'Segna Assenza'}
+                                             </button>`;
+                        }
+
+                        return `<div class="appointment-item" style="display: flex; justify-content: space-between; align-items: center; background-color: ${b.is_absent ? '#ffebee' : '#fff'};">
+                                    <div style="flex-grow: 1;">
+                                        <strong>${bookingDate.toLocaleDateString('it-IT', {weekday: 'short', day: '2-digit', month: 'short'})}</strong> - 
+                                        ${formatTime(b.start_time)} / ${formatTime(b.end_time)} 
+                                        <small>(${b.location})</small>
+                                        ${b.is_absent ? ' <strong style="color:var(--danger-color); font-size: 0.8rem;">(Assenza)</strong>' : ''}
+                                    </div>
+                                    ${absenceButton}
                                 </div>`;
                     };
-
+                    
                     let appointmentsHtml = '<h5>Appuntamenti Futuri</h5>';
                     if (futureBookings.length > 0) {
-                        appointmentsHtml += futureBookings.map(renderBookingItem).join('');
+                        appointmentsHtml += futureBookings.map(b => renderBookingItem(b, false)).join('');
                     } else {
                         appointmentsHtml += '<p style="font-size: 0.9rem; text-align: center; color: #666;">Nessun appuntamento futuro.</p>';
                     }
 
                     appointmentsHtml += '<h5 style="margin-top: 1.5rem;">Storico Lezioni</h5>';
                     if (pastBookings.length > 0) {
-                        appointmentsHtml += pastBookings.map(renderBookingItem).join('');
+                        appointmentsHtml += pastBookings.map(b => renderBookingItem(b, true)).join('');
                     } else {
                         appointmentsHtml += '<p style="font-size: 0.9rem; text-align: center; color: #666;">Nessuno storico disponibile.</p>';
                     }
+                    // <!-- FINE MODIFICA -->
 
                     return `
                     <div class="student-list-item">
@@ -997,6 +1024,28 @@
                 if (button.id === 'create-student-btn') showUserModal(false);
                 if (button.classList.contains('btn-edit-student')) showUserModal(true, button.dataset);
                 if (button.classList.contains('btn-delete-student')) deleteUser(button.dataset.id, button.dataset.name);
+
+                // <!-- MODIFICA: Aggiunto handler per il pulsante assenza -->
+                if (button.classList.contains('btn-mark-absence')) {
+                    const bookingId = button.dataset.bookingId;
+                    const isCurrentlyAbsent = button.dataset.isAbsent === 'true';
+                    const newAbsenceState = !isCurrentlyAbsent;
+                    const actionText = newAbsenceState ? 'segnare questa lezione come assenza' : 'annullare l\'assenza per questa lezione';
+
+                    if (confirm(`Sei sicuro di voler ${actionText}?`)) {
+                        showLoading(true);
+                        const { error } = await supabase.from('bookings').update({ is_absent: newAbsenceState }).eq('id', bookingId);
+                        showLoading(false);
+                        if (error) {
+                            alert("Errore durante l'aggiornamento.");
+                            console.error(error);
+                        } else {
+                            alert('Stato assenza aggiornato.');
+                            await renderStudentList(); // Refresh the list
+                        }
+                    }
+                }
+                // <!-- FINE MODIFICA -->
 
                 if (button.classList.contains('btn-toggle-details')) {
                     const targetId = button.dataset.target;
