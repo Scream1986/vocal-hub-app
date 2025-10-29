@@ -92,6 +92,9 @@
             <div id="main-screen" class="screen">
                 <h2 id="welcome-message"></h2>
                 <div id="lesson-counter-display"></div>
+                <!-- NUOVA SEZIONE PER IL RIEPILOGO ALLIEVO -->
+                <div id="student-info-summary" style="display: none; margin-top: 1rem; padding: 0.75rem; background-color: #f8f9fa; border: 1px solid #eee; border-radius: 8px;"></div>
+                <!-- FINE NUOVA SEZIONE -->
                 <div id="student-bookings-summary" style="margin-top: 1.5rem;"></div>
                 <hr>
                 <p style="text-align:center;">Seleziona una sede per prenotare una nuova lezione:</p>
@@ -180,10 +183,22 @@
 
     <script>
     // <!-- 
-    // NOTA BENE: Per far funzionare la nuova funzione ASSENZE,
-    // devi aggiungere una colonna 'is_absent' alla tua tabella 'bookings' in Supabase.
-    // Tipo: boolean
-    // Valore Predefinito (Default Value): false
+    // NOTA BENE: Per far funzionare le nuove funzioni (Assenze, Reg., Credito),
+    // devi aggiungere le seguenti colonne al tuo database Supabase:
+    //
+    // 1. Tabella: 'bookings'
+    //    - Colonna: 'is_absent'
+    //    - Tipo: 'bool' (boolean)
+    //    - Default Value: 'false'
+    //
+    // 2. Tabella: 'users'
+    //    - Colonna: 'is_regular'
+    //    - Tipo: 'bool' (boolean)
+    //    - Default Value: 'false'
+    //
+    // 3. Tabella: 'users'
+    //    - Colonna: 'credit_status'
+    //    - Tipo: 'text'
     // -->
     document.addEventListener('DOMContentLoaded', () => {
         const supabaseUrl = 'https://esxpbpxdhqijsomqmrvr.supabase.co';
@@ -238,6 +253,7 @@
             const code = document.getElementById('student-code').value.toUpperCase().trim();
             if (!code) return;
             showLoading(true);
+            // <!-- MODIFICA: select('*') ora recupera anche is_regular e credit_status -->
             const { data: user, error } = await supabase.from('users').select('*').eq('code', code).single();
             showLoading(false);
             if (error && error.code !== 'PGRST116') {
@@ -248,8 +264,37 @@
                 state.currentUser = user;
                 document.getElementById('welcome-message').textContent = `Ciao, ${user.name}!`;
                 await loadInitialData();
-                if (user.role === 'admin') updateAdminUI();
-                else { checkStudentReplies(); renderStudentBookingSummary(); }
+                if (user.role === 'admin') {
+                    updateAdminUI();
+                    document.getElementById('student-info-summary').style.display = 'none'; // Nascondi il riepilogo per l'admin
+                } else { 
+                    checkStudentReplies(); 
+                    renderStudentBookingSummary(); 
+                    
+                    // --- NUOVO CODICE per Riepilogo Allievo ---
+                    const summaryDiv = document.getElementById('student-info-summary');
+                    summaryDiv.style.display = 'block'; // Assicura che sia visibile
+                    let summaryHTML = '<h4 style="margin-top:0; margin-bottom: 0.5rem; text-align: left;">Stato Account</h4>';
+                    summaryHTML += `<div style="display: flex; justify-content: space-between; align-items: center; font-size: 0.9rem;">`;
+                    
+                    // 1. Info "Reg."
+                    if (user.is_regular) {
+                        summaryHTML += `<span>Registrazione: <strong style="color: var(--success-color);">Attiva</strong></span>`;
+                    } else {
+                        summaryHTML += `<span>Registrazione: <strong style="color: var(--danger-color);">Non Attiva</strong></span>`;
+                    }
+                    
+                    // 2. Info "Credit"
+                    if (user.credit_status) {
+                        summaryHTML += `<span>Credito: <strong>${user.credit_status}</strong></span>`;
+                    } else {
+                        summaryHTML += `<span>Credito: <strong>N/D</strong></span>`;
+                    }
+                    
+                    summaryHTML += `</div>`;
+                    summaryDiv.innerHTML = summaryHTML;
+                    // --- FINE NUOVO CODICE ---
+                }
                 navigateTo('main-screen');
             } else {
                 alert('Codice non valido. Riprova.');
@@ -302,6 +347,7 @@
             document.getElementById('student-code').value = '';
             document.getElementById('admin-actions').innerHTML = '';
             document.getElementById('student-bookings-summary').innerHTML = '';
+            document.getElementById('student-info-summary').innerHTML = ''; // Pulisci anche il nuovo riepilogo
         };
         
         const renderStudentBookingSummary = async () => {
@@ -352,7 +398,6 @@
             if (pastBookings.length > 0) {
                 summaryHtml += pastBookings.map(booking => {
                     const lessonDate = new Date(`${booking.date}T00:00:00`);
-                    // <!-- MODIFICA: Aggiunto stile e label per le assenze -->
                     return `<div class="booked-slot" style="background-color: ${booking.is_absent ? '#ffebee' : '#f8f9fa'}; justify-content: space-between; align-items: center; border-left: 3px solid ${booking.is_absent ? 'var(--danger-color)' : '#eee'};">
                                 <span style="text-align: left;">
                                     <strong>${lessonDate.toLocaleDateString('it-IT', {weekday: 'long', day: 'numeric', month: 'long', year: 'numeric'})}</strong>
@@ -444,7 +489,6 @@
                 }
             }
             
-            // *** LOGICA CORRETTA PER APPLICARE LE REGOLE ***
             const applyRule = (ruleType, startTime, endTime) => {
                 for (const [time, slot] of slotsMap.entries()) {
                     if (time >= startTime && time < endTime) {
@@ -453,14 +497,10 @@
                 }
             };
 
-            // Separiamo le regole ricorrenti da quelle specifiche per il giorno
             const recurringRules = allRules.filter(r => r.start_date !== r.end_date || r.start_date !== dateStr);
             const oneOffRules = allRules.filter(r => r.start_date === r.end_date && r.start_date === dateStr);
 
-            // Applichiamo prima le regole generiche (ricorrenti)
             recurringRules.forEach(r => applyRule(r.rule_type, formatTime(r.start_time), formatTime(r.end_time)));
-            
-            // Poi applichiamo le regole specifiche per il giorno, che avranno la precedenza
             oneOffRules.forEach(r => applyRule(r.rule_type, formatTime(r.start_time), formatTime(r.end_time)));
 
             bookings.forEach(booking => {
@@ -639,7 +679,6 @@
 
             showLoading(true);
 
-            // Per la prenotazione singola, usiamo la logica più robusta di isSlotAvailable
             const available = await isSlotAvailable(state.selectedDate, startTime, endTime, state.currentLocation);
 
             if (!available) {
@@ -802,9 +841,10 @@
                 listDiv.innerHTML = 'Caricamento...'; 
                 showLoading(true);
 
+                // <!-- MODIFICA: select('*') su 'users' ora prende anche 'is_regular' e 'credit_status' -->
                 const [usersRes, bookingsRes] = await Promise.all([
                     supabase.from('users').select('*').eq('role', 'student').order('name'),
-                    supabase.from('bookings').select('*').order('date', { ascending: false }) // '*' include la nuova colonna 'is_absent'
+                    supabase.from('bookings').select('*').order('date', { ascending: false }) 
                 ]);
                 
                 showLoading(false);
@@ -824,7 +864,6 @@
                 const todayStr = formatDate(new Date());
                 const lessonsCountMap = new Map();
                 for (const userCode in bookingsByUser) {
-                    // Contiamo solo le lezioni svolte E non segnate come assenti
                     lessonsCountMap.set(userCode, bookingsByUser[userCode].filter(b => b.date < todayStr && !b.is_absent).length);
                 }
                 
@@ -842,12 +881,10 @@
                     const pastBookings = studentBookings
                         .filter(b => new Date(b.date + 'T00:00:00') < today);
                     
-                    // <!-- MODIFICA: Aggiornata renderBookingItem per gestire le assenze -->
                     const renderBookingItem = (b, isPast = false) => {
                         const bookingDate = new Date(b.date + 'T00:00:00');
                         let absenceButton = '';
                         if (isPast) {
-                            // Aggiungiamo il pulsante per segnare/annullare l'assenza
                             absenceButton = `<button 
                                                 class="btn ${b.is_absent ? 'btn-info' : 'btn-warning'} btn-sm btn-mark-absence" 
                                                 data-booking-id="${b.id}" 
@@ -881,7 +918,21 @@
                     } else {
                         appointmentsHtml += '<p style="font-size: 0.9rem; text-align: center; color: #666;">Nessuno storico disponibile.</p>';
                     }
-                    // <!-- FINE MODIFICA -->
+
+                    // --- NUOVO HTML per Campi Admin (Reg. e Credit) ---
+                    const adminFieldsHtml = `
+                    <div class="admin-student-fields" style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1rem; background-color: #f8f9fa; padding: 1rem; border-radius: 6px;">
+                        <div class="form-group" style="margin-bottom: 0; display: flex; align-items: center; gap: 0.5rem;">
+                            <input type="checkbox" id="reg-${student.id}" data-id="${student.id}" class="admin-reg-check" ${student.is_regular ? 'checked' : ''} style="width: auto; height: 1.5rem; flex-shrink: 0;">
+                            <label for="reg-${student.id}" style="margin-bottom: 0; font-weight: bold;">Reg.</label>
+                        </div>
+                        <div class="form-group" style="margin-bottom: 0;">
+                            <label for="credit-${student.id}" style="font-weight: bold;">Credit</label>
+                            <input type="text" id="credit-${student.id}" data-id="${student.id}" class="admin-credit-input" value="${student.credit_status || ''}" placeholder="Es. 10" style="padding: 0.5rem;">
+                        </div>
+                    </div>
+                    `;
+                    // --- FINE NUOVO HTML ---
 
                     return `
                     <div class="student-list-item">
@@ -898,6 +949,9 @@
                                 <div class="stat-item"><span>${lessonsDone}</span>Lezioni Svolte</div>
                                 <div class="stat-item"><span>${student.changes_used ?? 0} / ${student.changes_allowed ?? 0}</span>Cambi Usati</div>
                             </div>
+                            
+                            ${adminFieldsHtml} <!-- Inserimento nuovo HTML -->
+
                             <div class="student-appointments">
                                 <h4>Appuntamenti</h4>
                                 ${appointmentsHtml}
@@ -930,6 +984,7 @@
                 const code = document.getElementById('user-modal-code').value.toUpperCase().trim();
                 if (!name || !code) return alert("Nome e Codice non possono essere vuoti.");
                 showLoading(true);
+                // <!-- MODIFICA: Al salvataggio/creazione, i nuovi campi sono gestiti a parte (o con valori di default) -->
                 const { error } = userId ? await supabase.from('users').update({ name, code }).eq('id', userId) : await supabase.from('users').insert({ name, code, role: 'student' });
                 showLoading(false);
                 if (error) return alert("Errore: il codice potrebbe essere già in uso.");
@@ -1017,6 +1072,8 @@
                     document.querySelector(`[data-location-block="${locationToRemove}"]`)?.remove();
                 }
             };
+
+            // Listener per i click (gestisce pulsanti, ecc.)
             document.getElementById('student-list-screen').addEventListener('click', async (e) => {
                 const button = e.target.closest('button');
                 if (!button || button.id.startsWith('back-to-main')) return;
@@ -1025,7 +1082,6 @@
                 if (button.classList.contains('btn-edit-student')) showUserModal(true, button.dataset);
                 if (button.classList.contains('btn-delete-student')) deleteUser(button.dataset.id, button.dataset.name);
 
-                // <!-- MODIFICA: Aggiunto handler per il pulsante assenza -->
                 if (button.classList.contains('btn-mark-absence')) {
                     const bookingId = button.dataset.bookingId;
                     const isCurrentlyAbsent = button.dataset.isAbsent === 'true';
@@ -1041,12 +1097,11 @@
                             console.error(error);
                         } else {
                             alert('Stato assenza aggiornato.');
-                            await renderStudentList(); // Refresh the list
+                            await renderStudentList(); 
                         }
                     }
                 }
-                // <!-- FINE MODIFICA -->
-
+                
                 if (button.classList.contains('btn-toggle-details')) {
                     const targetId = button.dataset.target;
                     const detailsDiv = document.getElementById(targetId);
@@ -1115,6 +1170,51 @@
                     }
                 }
             });
+
+            // --- NUOVI LISTENER PER SALVATAGGIO AUTOMATICO 'Reg.' e 'Credit' ---
+            
+            // Listener per 'change' (per la checkbox 'Reg.')
+            document.getElementById('student-list-screen').addEventListener('change', async (e) => {
+                if (e.target.classList.contains('admin-reg-check')) {
+                    const studentId = e.target.dataset.id;
+                    const is_regular = e.target.checked;
+                    showLoading(true);
+                    const { error } = await supabase.from('users').update({ is_regular }).eq('id', studentId);
+                    showLoading(false);
+                    if (error) {
+                        alert('Errore nell\'aggiornamento dello stato "Reg.".');
+                        console.error(error);
+                        e.target.checked = !is_regular; // Annulla la modifica in caso di errore
+                    } else {
+                        console.log('Stato "Reg." aggiornato.'); // Conferma silenziosa in console
+                    }
+                }
+            });
+
+            // Listener per 'blur' (per l'input 'Credit', salva quando si clicca fuori)
+            document.getElementById('student-list-screen').addEventListener('blur', async (e) => {
+                if (e.target.classList.contains('admin-credit-input')) {
+                    const studentId = e.target.dataset.id;
+                    const credit_status = e.target.value.trim();
+                    
+                    // Salva solo se il valore è cambiato (opzionale ma buona norma)
+                    if (e.target.dataset.lastValue === credit_status) return;
+
+                    showLoading(true);
+                    const { error } = await supabase.from('users').update({ credit_status }).eq('id', studentId);
+                    showLoading(false);
+                    if (error) {
+                        alert('Errore nell\'aggiornamento del "Credit".');
+                        console.error(error);
+                    } else {
+                        console.log('Stato "Credit" aggiornato.');
+                        e.target.dataset.lastValue = credit_status; // Aggiorna il valore per il prossimo controllo
+                    }
+                }
+            }, true); // 'true' usa la "capture phase" che è più affidabile per l'evento 'blur'
+            // --- FINE NUOVI LISTENER ---
+
+            // Listener per le impostazioni calendario
              document.getElementById('schedule-settings-screen').addEventListener('click', (e) => {
                 const button = e.target.closest('button');
                 if (!button || button.id.startsWith('back-to-main')) return;
@@ -1395,3 +1495,4 @@
     </script>
 </body>
 </html>
+
