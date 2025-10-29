@@ -92,9 +92,7 @@
             <div id="main-screen" class="screen">
                 <h2 id="welcome-message"></h2>
                 <div id="lesson-counter-display"></div>
-                <!-- NUOVA SEZIONE PER IL RIEPILOGO ALLIEVO -->
                 <div id="student-info-summary" style="display: none; margin-top: 1rem; padding: 0.75rem; background-color: #f8f9fa; border: 1px solid #eee; border-radius: 8px;"></div>
-                <!-- FINE NUOVA SEZIONE -->
                 <div id="student-bookings-summary" style="margin-top: 1.5rem;"></div>
                 <hr>
                 <p style="text-align:center;">Seleziona una sede per prenotare una nuova lezione:</p>
@@ -253,7 +251,6 @@
             const code = document.getElementById('student-code').value.toUpperCase().trim();
             if (!code) return;
             showLoading(true);
-            // <!-- MODIFICA: select('*') ora recupera anche is_regular e credit_status -->
             const { data: user, error } = await supabase.from('users').select('*').eq('code', code).single();
             showLoading(false);
             if (error && error.code !== 'PGRST116') {
@@ -266,25 +263,27 @@
                 await loadInitialData();
                 if (user.role === 'admin') {
                     updateAdminUI();
-                    document.getElementById('student-info-summary').style.display = 'none'; // Nascondi il riepilogo per l'admin
+                    document.getElementById('student-info-summary').style.display = 'none';
                 } else { 
                     checkStudentReplies(); 
                     renderStudentBookingSummary(); 
                     
                     // --- NUOVO CODICE per Riepilogo Allievo ---
                     const summaryDiv = document.getElementById('student-info-summary');
+                    
+                    // <!-- ***** QUESTA È LA RIGA CORRETTA ***** -->
                     summaryDiv.style.display = 'block'; // Assicura che sia visibile
+                    // <!-- ************************************ -->
+
                     let summaryHTML = '<h4 style="margin-top:0; margin-bottom: 0.5rem; text-align: left;">Stato Account</h4>';
                     summaryHTML += `<div style="display: flex; justify-content: space-between; align-items: center; font-size: 0.9rem;">`;
                     
-                    // 1. Info "Reg."
                     if (user.is_regular) {
                         summaryHTML += `<span>Registrazione: <strong style="color: var(--success-color);">Attiva</strong></span>`;
                     } else {
                         summaryHTML += `<span>Registrazione: <strong style="color: var(--danger-color);">Non Attiva</strong></span>`;
                     }
                     
-                    // 2. Info "Credit"
                     if (user.credit_status) {
                         summaryHTML += `<span>Credito: <strong>${user.credit_status}</strong></span>`;
                     } else {
@@ -347,7 +346,8 @@
             document.getElementById('student-code').value = '';
             document.getElementById('admin-actions').innerHTML = '';
             document.getElementById('student-bookings-summary').innerHTML = '';
-            document.getElementById('student-info-summary').innerHTML = ''; // Pulisci anche il nuovo riepilogo
+            document.getElementById('student-info-summary').innerHTML = '';
+            document.getElementById('student-info-summary').style.display = 'none'; // Nascondi al logout
         };
         
         const renderStudentBookingSummary = async () => {
@@ -841,7 +841,6 @@
                 listDiv.innerHTML = 'Caricamento...'; 
                 showLoading(true);
 
-                // <!-- MODIFICA: select('*') su 'users' ora prende anche 'is_regular' e 'credit_status' -->
                 const [usersRes, bookingsRes] = await Promise.all([
                     supabase.from('users').select('*').eq('role', 'student').order('name'),
                     supabase.from('bookings').select('*').order('date', { ascending: false }) 
@@ -919,7 +918,6 @@
                         appointmentsHtml += '<p style="font-size: 0.9rem; text-align: center; color: #666;">Nessuno storico disponibile.</p>';
                     }
 
-                    // --- NUOVO HTML per Campi Admin (Reg. e Credit) ---
                     const adminFieldsHtml = `
                     <div class="admin-student-fields" style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1rem; background-color: #f8f9fa; padding: 1rem; border-radius: 6px;">
                         <div class="form-group" style="margin-bottom: 0; display: flex; align-items: center; gap: 0.5rem;">
@@ -932,7 +930,6 @@
                         </div>
                     </div>
                     `;
-                    // --- FINE NUOVO HTML ---
 
                     return `
                     <div class="student-list-item">
@@ -950,7 +947,7 @@
                                 <div class="stat-item"><span>${student.changes_used ?? 0} / ${student.changes_allowed ?? 0}</span>Cambi Usati</div>
                             </div>
                             
-                            ${adminFieldsHtml} <!-- Inserimento nuovo HTML -->
+                            ${adminFieldsHtml}
 
                             <div class="student-appointments">
                                 <h4>Appuntamenti</h4>
@@ -984,7 +981,6 @@
                 const code = document.getElementById('user-modal-code').value.toUpperCase().trim();
                 if (!name || !code) return alert("Nome e Codice non possono essere vuoti.");
                 showLoading(true);
-                // <!-- MODIFICA: Al salvataggio/creazione, i nuovi campi sono gestiti a parte (o con valori di default) -->
                 const { error } = userId ? await supabase.from('users').update({ name, code }).eq('id', userId) : await supabase.from('users').insert({ name, code, role: 'student' });
                 showLoading(false);
                 if (error) return alert("Errore: il codice potrebbe essere già in uso.");
@@ -1073,7 +1069,6 @@
                 }
             };
 
-            // Listener per i click (gestisce pulsanti, ecc.)
             document.getElementById('student-list-screen').addEventListener('click', async (e) => {
                 const button = e.target.closest('button');
                 if (!button || button.id.startsWith('back-to-main')) return;
@@ -1171,9 +1166,6 @@
                 }
             });
 
-            // --- NUOVI LISTENER PER SALVATAGGIO AUTOMATICO 'Reg.' e 'Credit' ---
-            
-            // Listener per 'change' (per la checkbox 'Reg.')
             document.getElementById('student-list-screen').addEventListener('change', async (e) => {
                 if (e.target.classList.contains('admin-reg-check')) {
                     const studentId = e.target.dataset.id;
@@ -1184,20 +1176,18 @@
                     if (error) {
                         alert('Errore nell\'aggiornamento dello stato "Reg.".');
                         console.error(error);
-                        e.target.checked = !is_regular; // Annulla la modifica in caso di errore
+                        e.target.checked = !is_regular;
                     } else {
-                        console.log('Stato "Reg." aggiornato.'); // Conferma silenziosa in console
+                        console.log('Stato "Reg." aggiornato.');
                     }
                 }
             });
 
-            // Listener per 'blur' (per l'input 'Credit', salva quando si clicca fuori)
             document.getElementById('student-list-screen').addEventListener('blur', async (e) => {
                 if (e.target.classList.contains('admin-credit-input')) {
                     const studentId = e.target.dataset.id;
                     const credit_status = e.target.value.trim();
                     
-                    // Salva solo se il valore è cambiato (opzionale ma buona norma)
                     if (e.target.dataset.lastValue === credit_status) return;
 
                     showLoading(true);
@@ -1208,13 +1198,11 @@
                         console.error(error);
                     } else {
                         console.log('Stato "Credit" aggiornato.');
-                        e.target.dataset.lastValue = credit_status; // Aggiorna il valore per il prossimo controllo
+                        e.target.dataset.lastValue = credit_status;
                     }
                 }
-            }, true); // 'true' usa la "capture phase" che è più affidabile per l'evento 'blur'
-            // --- FINE NUOVI LISTENER ---
+            }, true);
 
-            // Listener per le impostazioni calendario
              document.getElementById('schedule-settings-screen').addEventListener('click', (e) => {
                 const button = e.target.closest('button');
                 if (!button || button.id.startsWith('back-to-main')) return;
