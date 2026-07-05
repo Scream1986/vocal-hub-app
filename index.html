@@ -81,6 +81,7 @@
         <button id="logout-button" class="logout-btn" style="display:none;">Logout</button>
     </header>
 
+    <!-- 1. SCREEN LOGIN -->
     <div id="login-screen" class="screen active">
         <h2 style="text-align:center;">Accedi alla Piattaforma</h2>
         <form id="login-form">
@@ -92,6 +93,7 @@
         </form>
     </div>
 
+    <!-- 2. SCREEN MAIN (STUDENT DASHBOARD) -->
     <div id="student-screen" class="screen">
         <div class="card">
             <h3>Benvenuto, <span id="student-name">-</span></h3>
@@ -110,6 +112,7 @@
         <div id="student-history-changes" class="scrollable-list"></div>
     </div>
 
+    <!-- 3. SCREEN ADMIN DASHBOARD -->
     <div id="admin-screen" class="screen">
         <h2>Pannello di Controllo Amministratore</h2>
         
@@ -124,6 +127,7 @@
         <div id="admin-dashboard-bookings" class="scrollable-list"></div>
     </div>
 
+    <!-- 4. SCREEN ADMIN: GESTIONE UTENTI -->
     <div id="admin-users-screen" class="screen">
         <button class="btn btn-secondary btn-back-admin">Torna alla Dashboard</button>
         <h3>Anagrafica Allievi</h3>
@@ -131,6 +135,7 @@
         <div id="admin-users-list" style="margin-top:1rem;"></div>
     </div>
 
+    <!-- 5. SCREEN ADMIN: PRENOTAZIONE LEZIONI (SOLO ADMIN) -->
     <div id="booking-screen" class="screen">
         <button class="btn btn-secondary btn-back-admin">Torna alla Dashboard</button>
         <h3>Inserimento Nuova Prenotazione</h3>
@@ -175,6 +180,7 @@
         </form>
     </div>
 
+    <!-- 6. SCREEN ADMIN: REGOLE E CHIUSURE -->
     <div id="admin-rules-screen" class="screen">
         <button class="btn btn-secondary btn-back-admin">Torna alla Dashboard</button>
         <h3>Configurazione Sedi e Chiusure straordinarie</h3>
@@ -185,6 +191,7 @@
         <div id="admin-rules-list" class="scrollable-list"></div>
     </div>
 
+    <!-- 7. SCREEN ADMIN: NOTIFICHE / CAMBI -->
     <div id="admin-notifications-screen" class="screen">
         <button class="btn btn-secondary btn-back-admin">Torna alla Dashboard</button>
         <h3>Richieste di Cambio Orario Ricevute</h3>
@@ -192,6 +199,7 @@
     </div>
 </div>
 
+<!-- MODALE: AGGIUNGI/MODIFICA UTENTE -->
 <div id="user-modal-overlay" class="modal-overlay">
     <div class="modal-content">
         <h3 id="user-modal-title">Nuovo Allievo</h3>
@@ -230,6 +238,7 @@
     </div>
 </div>
 
+<!-- MODALE: AGGIUNGI BLOCCO ORARIO / CHIUSURA -->
 <div id="block-modal-overlay" class="modal-overlay">
     <div class="modal-content">
         <h3>Nuovo Blocco / Chiusura Giornaliera</h3>
@@ -274,10 +283,10 @@
 
 <script>
 // --- CONFIGURAZIONE SUPABASE ---
-// IMPORTANTE: Sostituisci con le tue reali credenziali Supabase
+// RICORDA: Sostituisci qui sotto con le tue reali credenziali Supabase
 const SUPABASE_URL = "https://your-supabase-project.supabase.co"; 
 const SUPABASE_ANON_KEY = "your-anon-key";
-const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 // --- STATO DELL'APPLICAZIONE ---
 let currentUser = null; 
@@ -294,7 +303,6 @@ function showLoading(show) {
 }
 
 function navigateTo(screenId) {
-    // Controllo di sicurezza se lo studente prova ad accedere allo schermo prenotazioni
     if (screenId === 'booking-screen' && currentUser && currentUser.role !== 'admin') {
         screenId = 'student-screen';
     }
@@ -312,23 +320,19 @@ function initEventListeners() {
     document.getElementById("login-form").addEventListener("submit", handleLogin);
     document.getElementById("logout-button").addEventListener("click", handleLogout);
     
-    // Navigazione Back per Admin
     document.querySelectorAll(".btn-back-admin").forEach(btn => {
         btn.addEventListener("click", () => navigateTo("admin-screen"));
     });
 
-    // Navigazione Schermate Admin
     document.getElementById("btn-nav-users").addEventListener("click", () => { navigateTo("admin-users-screen"); renderAdminUsers(); });
     document.getElementById("btn-nav-book").addEventListener("click", () => { navigateTo("booking-screen"); prepareBookingScreen(); });
     document.getElementById("btn-nav-rules").addEventListener("click", () => { navigateTo("admin-rules-screen"); renderAdminRules(); });
     document.getElementById("btn-nav-notif").addEventListener("click", () => { navigateTo("admin-notifications-screen"); renderNotifications(); });
 
-    // Modale Gestione Utenti
     document.getElementById("btn-add-user").addEventListener("click", () => openUserModal());
     document.getElementById("user-modal-form").addEventListener("submit", saveUserModal);
     document.getElementById("user-modal-cancel").addEventListener("click", () => document.getElementById("user-modal-overlay").style.display = "none");
 
-    // Modale Gestione Blocchi / Chiusure
     document.getElementById("btn-add-block").addEventListener("click", () => {
         document.getElementById("block-modal-form").reset();
         document.getElementById("block-time-group").style.display = "none";
@@ -340,7 +344,6 @@ function initEventListeners() {
     document.getElementById("block-modal-form").addEventListener("submit", saveBlockModal);
     document.getElementById("block-modal-cancel").addEventListener("click", () => document.getElementById("block-modal-overlay").style.display = "none");
 
-    // Input data del form prenotazioni per rigenerare gli orari liberi
     document.getElementById("book-date").addEventListener("change", loadAvailableSlots);
     document.getElementById("book-venue").addEventListener("change", loadAvailableSlots);
     document.getElementById("book-duration").addEventListener("change", loadAvailableSlots);
@@ -359,7 +362,7 @@ async function handleLogin(e) {
 
     showLoading(true);
     try {
-        const { data, error } = await supabase.from("users").select("*").eq("access_code", code).single();
+        const { data, error } = await supabaseClient.from("users").select("*").eq("access_code", code).single();
         if (error || !data) {
             alert("Codice di accesso errato o non registrato.");
             showLoading(false);
@@ -372,7 +375,6 @@ async function handleLogin(e) {
         if (currentUser.role === "admin") {
             navigateTo("admin-screen");
             await updateAdminDashboard();
-            // Polling ogni 15 secondi per aggiornare la dashboard e le notifiche
             pollInterval = setInterval(() => { updateAdminDashboard(); }, 15000);
         } else {
             navigateTo("student-screen");
@@ -399,8 +401,7 @@ function handleLogout() {
 async function updateStudentDashboard() {
     if(!currentUser) return;
     
-    // Rileggi le info utente aggiornate
-    const { data: userUpdated } = await supabase.from("users").select("*").eq("id", currentUser.id).single();
+    const { data: userUpdated } = await supabaseClient.from("users").select("*").eq("id", currentUser.id).single();
     if(userUpdated) currentUser = userUpdated;
 
     document.getElementById("student-name").innerText = currentUser.name;
@@ -408,15 +409,13 @@ async function updateStudentDashboard() {
     document.getElementById("student-status").className = `badge ${currentUser.status === 'active' ? 'badge-success' : 'badge-danger'}`;
     document.getElementById("student-allowance").innerText = currentUser.change_allowance;
 
-    // Recupera TUTTE le prenotazioni dello studente
-    const { data: bookings, error } = await supabase.from("bookings")
+    const { data: bookings, error } = await supabaseClient.from("bookings")
         .select("*")
         .eq("user_id", currentUser.id)
         .order("date", { ascending: true })
         .order("start_time", { ascending: true });
 
-    // Recupera TUTTE le notifiche/richieste inviate dallo studente
-    const { data: notifications } = await supabase.from("notifications")
+    const { data: notifications } = await supabaseClient.from("notifications")
         .select("*")
         .eq("user_id", currentUser.id)
         .order("created_at", { ascending: false });
@@ -432,13 +431,12 @@ async function updateStudentDashboard() {
     historyChangesContainer.innerHTML = "";
 
     const now = new Date();
-    let totalUsedLessons = 0; // Contatore lezioni scalate dai crediti acquistati
+    let totalUsedLessons = 0;
 
     bookings.forEach(b => {
         const bDateTime = new Date(`${b.date}T${b.start_time}`);
         const isPast = bDateTime < now;
 
-        // REGOLA RICHIESTA: Le assenze vengono conteggiate comunque come lezioni svolte
         if (isPast || b.status === 'Assenza') {
             totalUsedLessons++;
         }
@@ -463,9 +461,7 @@ async function updateStudentDashboard() {
             <div>${statusBadge}</div>
         `;
 
-        // Se la lezione è programmata e NON è contrassegnata come assenza anticipata, va in "In programma"
         if(!isPast && b.status !== 'Assenza') {
-            // Pulsante Richiedi Cambio solo se mancano più di 36 ore
             const hoursDiff = (bDateTime - now) / (1000 * 60 * 60);
             if(hoursDiff > 36 && currentUser.change_allowance > 0) {
                 const btnChange = document.createElement("button");
@@ -482,14 +478,12 @@ async function updateStudentDashboard() {
         }
     });
 
-    // Calcolo dinamico dei crediti reali rimanenti
     const remainingCredits = currentUser.total_credits - totalUsedLessons;
     document.getElementById("student-credits").innerText = remainingCredits < 0 ? 0 : remainingCredits;
 
     if(upcomingContainer.innerHTML === "") upcomingContainer.innerHTML = "<p style='font-size:0.85rem;color:#777;'>Nessuna lezione programmata.</p>";
     if(pastContainer.innerHTML === "") pastContainer.innerHTML = "<p style='font-size:0.85rem;color:#777;'>Nessuno storico lezioni passato.</p>";
 
-    // Render dello storico dei cambi/notifiche
     if(notifications && notifications.length > 0) {
         notifications.forEach(n => {
             const nItem = document.createElement("div");
@@ -519,8 +513,7 @@ async function requestLessonChange(booking) {
     if(!reason) return;
 
     showLoading(true);
-    // 1. Crea la notifica per l'admin
-    await supabase.from("notifications").insert({
+    await supabaseClient.from("notifications").insert({
         user_id: currentUser.id,
         booking_id: booking.id,
         type: "change_request",
@@ -528,8 +521,7 @@ async function requestLessonChange(booking) {
         status: "pending"
     });
 
-    // 2. Scala un gettone dal contatore cambi consentiti
-    await supabase.from("users").update({
+    await supabaseClient.from("users").update({
         change_allowance: currentUser.change_allowance - 1
     }).eq("id", currentUser.id);
 
@@ -540,12 +532,11 @@ async function requestLessonChange(booking) {
 
 // --- LATO ADMIN: GESTIONE DASHBOARD PRINCIPALE ---
 async function updateAdminDashboard() {
-    const { data: notifs } = await supabase.from("notifications").select("id").eq("status", "pending");
+    const { data: notifs } = await supabaseClient.from("notifications").select("id").eq("status", "pending");
     document.getElementById("admin-notif-count").innerText = notifs ? notifs.length : 0;
 
-    // Mostra un elenco delle lezioni di oggi e domani nel pannello principale
     const todayStr = new Date().toISOString().substring(0,10);
-    const { data: bookings } = await supabase.from("bookings")
+    const { data: bookings } = await supabaseClient.from("bookings")
         .select("*, users(name)")
         .gte("date", todayStr)
         .order("date", {ascending:true})
@@ -579,7 +570,7 @@ async function updateAdminDashboard() {
 async function markAsAbsence(bookingId) {
     if(!confirm("Segnare lo studente come assente? Questa lezione rimarrà conteggiata nello storico come lezione consumata.")) return;
     showLoading(true);
-    await supabase.from("bookings").update({ status: "Assenza" }).eq("id", bookingId);
+    await supabaseClient.from("bookings").update({ status: "Assenza" }).eq("id", bookingId);
     await updateAdminDashboard();
     showLoading(false);
 }
@@ -587,12 +578,12 @@ async function markAsAbsence(bookingId) {
 async function deleteBooking(bookingId) {
     if(!confirm("Sicuro di voler eliminare definitivamente questa prenotazione?")) return;
     showLoading(true);
-    await supabase.from("bookings").delete().eq("id", bookingId);
+    await supabaseClient.from("bookings").delete().eq("id", bookingId);
     await updateAdminDashboard();
     showLoading(false);
 }
 
-// --- ADMIN: PRENOTAZIONE (SOLO ACCESSIBILE DA ADMIN) ---
+// --- ADMIN: PRENOTAZIONE ---
 async function prepareBookingScreen() {
     showLoading(true);
     document.getElementById("admin-booking-form").reset();
@@ -600,8 +591,7 @@ async function prepareBookingScreen() {
     document.getElementById("admin-slots-grid").innerHTML = "Seleziona una data per caricare gli slot disponibili...";
     selectedSlotTime = null;
 
-    // Popola select utenti
-    const { data: users } = await supabase.from("users").select("id, name").eq("role", "student").order("name");
+    const { data: users } = await supabaseClient.from("users").select("id, name").eq("role", "student").order("name");
     const selectEl = document.getElementById("book-user-select");
     selectEl.innerHTML = '<option value="">-- Scegli Allievo --</option>';
     if(users) {
@@ -623,8 +613,7 @@ async function loadAvailableSlots() {
     gridContainer.innerHTML = "Verifica disponibilità...";
     selectedSlotTime = null;
 
-    // 1. Verifica se l'intero giorno è bloccato
-    const { data: blocks } = await supabase.from("availability_rules")
+    const { data: blocks } = await supabaseClient.from("availability_rules")
         .select("*")
         .eq("date", dateVal)
         .eq("venue", venueVal);
@@ -634,13 +623,11 @@ async function loadAvailableSlots() {
         return;
     }
 
-    // 2. Prendi tutte le prenotazioni occupate per quel giorno e sede
-    const { data: bookings } = await supabase.from("bookings")
+    const { data: bookings } = await supabaseClient.from("bookings")
         .select("start_time, duration")
         .eq("date", dateVal)
         .eq("venue", venueVal);
 
-    // Generazione slot standard dalle 09:00 alle 20:00 ad intervalli di 15 minuti
     let slots = [];
     let startHour = 9, endHour = 20;
     
@@ -661,10 +648,8 @@ async function loadAvailableSlots() {
         btn.className = "slot-btn";
         btn.innerText = timeDisplay;
 
-        // Controllo se lo slot si sovrappone a prenotazioni o a blocchi orari parziali
         let isOccupied = false;
 
-        // Controllo prenotazioni esistenti
         if(bookings) {
             bookings.forEach(b => {
                 if(checkOverlap(timeStr, durationVal, b.start_time, b.duration)) {
@@ -673,11 +658,9 @@ async function loadAvailableSlots() {
             });
         }
 
-        // Controllo blocchi parziali
         if(blocks) {
             blocks.forEach(bl => {
                 if(bl.type === "time_slot") {
-                    // Supponiamo che il blocco duri dall'ora inizio all'ora fine
                     if (timeStr >= bl.start_time && timeStr < bl.end_time) {
                         isOccupied = true;
                     }
@@ -740,9 +723,8 @@ async function saveAdminBooking(e) {
             }
         }
 
-        // Inserimento record
         for(let d of bookingDates) {
-            await supabase.from("bookings").insert({
+            await supabaseClient.from("bookings").insert({
                 user_id: userId,
                 venue: venue,
                 date: d,
@@ -766,7 +748,7 @@ async function saveAdminBooking(e) {
 // --- ADMIN: ANAGRAFICA ALLIEVI ---
 async function renderAdminUsers() {
     showLoading(true);
-    const { data: users, error } = await supabase.from("users").select("*").eq("role", "student").order("name");
+    const { data: users, error } = await supabaseClient.from("users").select("*").eq("role", "student").order("name");
     const container = document.getElementById("admin-users-list");
     container.innerHTML = "";
 
@@ -799,7 +781,7 @@ async function openUserModal(userId = null) {
     if(userId) {
         document.getElementById("user-modal-title").innerText = "Modifica Allievo";
         showLoading(true);
-        const { data: u } = await supabase.from("users").select("*").eq("id", userId).single();
+        const { data: u } = await supabaseClient.from("users").select("*").eq("id", userId).single();
         if(u) {
             document.getElementById("user-modal-id").value = u.id;
             document.getElementById("user-modal-name").value = u.name;
@@ -839,9 +821,9 @@ async function saveUserModal(e) {
     };
 
     if(id) {
-        await supabase.from("users").update(payload).eq("id", id);
+        await supabaseClient.from("users").update(payload).eq("id", id);
     } else {
-        await supabase.from("users").insert(payload);
+        await supabaseClient.from("users").insert(payload);
     }
 
     document.getElementById("user-modal-overlay").style.display = "none";
@@ -852,8 +834,8 @@ async function saveUserModal(e) {
 async function deleteUser(userId) {
     if(!confirm("Sicuro di voler cancellare l'allievo? Verranno rimosse anche le sue prenotazioni.")) return;
     showLoading(true);
-    await supabase.from("bookings").delete().eq("user_id", userId);
-    await supabase.from("users").delete().eq("id", userId);
+    await supabaseClient.from("bookings").delete().eq("user_id", userId);
+    await supabaseClient.from("users").delete().eq("id", userId);
     await renderAdminUsers();
     showLoading(false);
 }
@@ -861,7 +843,7 @@ async function deleteUser(userId) {
 // --- ADMIN: REGOLE DI CHIUSURA ---
 async function renderAdminRules() {
     showLoading(true);
-    const { data: rules } = await supabase.from("availability_rules").select("*").order("date");
+    const { data: rules } = await supabaseClient.from("availability_rules").select("*").order("date");
     const list = document.getElementById("admin-rules-list");
     list.innerHTML = "";
     
@@ -896,8 +878,7 @@ async function saveBlockModal(e) {
 
     showLoading(true);
 
-    // 1. Salva la regola di indisponibilità
-    await supabase.from("availability_rules").insert({
+    await supabaseClient.from("availability_rules").insert({
         venue: venue,
         date: date,
         type: type,
@@ -906,8 +887,7 @@ async function saveBlockModal(e) {
         reason: reason
     });
 
-    // 2. Trova eventuali lezioni già prenotate dagli allievi che vanno in conflitto e cancella inviando una notifica
-    let query = supabase.from("bookings").select("*, users(id)").eq("venue", venue).eq("date", date);
+    let query = supabaseClient.from("bookings").select("*, users(id)").eq("venue", venue).eq("date", date);
     const { data: targetedBookings } = await query;
 
     if(targetedBookings) {
@@ -920,10 +900,8 @@ async function saveBlockModal(e) {
             }
 
             if(conflict) {
-                // Cancella la lezione compromessa
-                await supabase.from("bookings").delete().eq("id", tb.id);
-                // Notifica l'allievo
-                await supabase.from("notifications").insert({
+                await supabaseClient.from("bookings").delete().eq("id", tb.id);
+                await supabaseClient.from("notifications").insert({
                     user_id: tb.user_id,
                     type: "system_alert",
                     message: `ATTENZIONE: La tua lezione del ${formatDate(date)} ore ${tb.start_time.substring(0,5)} presso ${venue} è stata cancellata causa chiusura/blocco attività (${reason || 'Esigenze organizzative'}).`,
@@ -940,7 +918,7 @@ async function saveBlockModal(e) {
 
 async function deleteRule(ruleId) {
     showLoading(true);
-    await supabase.from("availability_rules").delete().eq("id", ruleId);
+    await supabaseClient.from("availability_rules").delete().eq("id", ruleId);
     await renderAdminRules();
     showLoading(false);
 }
@@ -948,7 +926,7 @@ async function deleteRule(ruleId) {
 // --- ADMIN: GESTIONE NOTIFICHE RICHIESTE ---
 async function renderNotifications() {
     showLoading(true);
-    const { data: notifs } = await supabase.from("notifications")
+    const { data: notifs } = await supabaseClient.from("notifications")
         .select("*, users(name)")
         .eq("status", "pending")
         .order("created_at", { ascending: false });
@@ -985,7 +963,7 @@ async function resolveNotification(id, statusDecision) {
     const replyText = document.getElementById(`reply-text-${id}`).value.trim();
     showLoading(true);
     
-    await supabase.from("notifications").update({
+    await supabaseClient.from("notifications").update({
         status: statusDecision,
         reply_message: replyText || (statusDecision === 'approved' ? "Richiesta approvata." : "Non è stato possibile approvare la richiesta.")
     }).eq("id", id);
