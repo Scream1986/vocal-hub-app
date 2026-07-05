@@ -106,7 +106,6 @@
             <div id="admin-tools-screen" class="screen"><h2>Strumenti Admin</h2><p style="text-align: center; font-size: 0.9rem; color: #6c757d;">Usa questi strumenti per cancellazioni di massa. Le azioni sono irreversibili.</p><div class="admin-tool-card"><h4>Svuota Prenotazioni</h4><div class="form-group"><label for="admin-tools-location">Seleziona Sede</label><select id="admin-tools-location"></select></div><hr><div class="form-group"><label for="reset-day-date">Svuota Giorno Singolo</label><input type="date" id="reset-day-date"><button id="reset-day-btn" class="btn btn-danger">Svuota Giorno</button></div><hr><div class="form-group"><label for="reset-period-start">Svuota Periodo Personalizzato</label><input type="date" id="reset-period-start"><input type="date" id="reset-period-end" style="margin-top: 0.5rem;"><button id="reset-period-btn" class="btn btn-danger">Svuota Periodo</button></div></div><button id="back-to-main-from-admin-tools-btn" class="btn btn-secondary">Torna Indietro</button></div>
             <div id="schedule-settings-screen" class="screen"><h2>Impostazioni Calendario</h2><div id="schedule-settings-content"></div><hr><div class="form-group"><label for="new-location-name">Aggiungi una nuova sede</label><input type="text" id="new-location-name" placeholder="Nome nuova sede"><button id="add-location-btn" class="btn btn-secondary" style="margin-top: 0.5rem;">Aggiungi Sede</button></div><button id="save-schedule-settings-btn" class="btn btn-primary">Salva Modifiche</button><button id="back-to-main-from-schedule-settings-btn" class="btn btn-secondary">Torna Indietro</button></div>
             <div id="student-list-screen" class="screen"><h2>Gestione Allievi</h2><button id="create-student-btn" class="btn btn-primary" style="margin-bottom: 1rem;">+ Crea Nuovo Allievo</button><div id="student-list"></div><button id="back-to-main-from-student-list-btn" class="btn btn-secondary" style="margin-top: 1rem;">Torna Indietro</button></div>
-            <div id="notifications-screen" class="screen"><h2>Notifiche Studenti</h2><div id="notifications-list"></div><button id="back-to-main-from-notifications-btn" class="btn btn-secondary">Torna Indietro</button></div>
         </main>
     </div>
     
@@ -189,7 +188,7 @@
         state.currentDate.setDate(1);
         const loadingSpinner = document.getElementById('loading-spinner');
         const mainEl = document.querySelector('main');
-        const screens = { 'login-screen': document.getElementById('login-screen'), 'main-screen': document.getElementById('main-screen'), 'schedule-settings-screen': document.getElementById('schedule-settings-screen'), 'student-list-screen': document.getElementById('student-list-screen'), 'booking-screen': document.getElementById('booking-screen'), 'notifications-screen': document.getElementById('notifications-screen'), 'schedule-screen': document.getElementById('schedule-screen'), 'admin-tools-screen': document.getElementById('admin-tools-screen') };
+        const screens = { 'login-screen': document.getElementById('login-screen'), 'main-screen': document.getElementById('main-screen'), 'schedule-settings-screen': document.getElementById('schedule-settings-screen'), 'student-list-screen': document.getElementById('student-list-screen'), 'booking-screen': document.getElementById('booking-screen'), 'schedule-screen': document.getElementById('schedule-screen'), 'admin-tools-screen': document.getElementById('admin-tools-screen') };
         
         const blockModal = {
             overlay: document.getElementById('block-modal-overlay'),
@@ -314,8 +313,7 @@
 
         const updateAdminUI = async () => {
             const adminActionsDiv = document.getElementById('admin-actions');
-            const { count } = await supabase.from('notifications').select('*', { count: 'exact', head: true }).eq('status', 'pending');
-            adminActionsDiv.innerHTML = `<button id="manage-students-btn" class="btn btn-primary">Gestione Allievi</button><button id="view-schedule-btn" class="btn btn-primary">Visualizza Orari Generali</button><button id="admin-tools-btn" class="btn btn-danger">Strumenti Admin</button><button id="manage-schedule-btn" class="btn btn-secondary">Impostazioni Calendario</button><button id="view-notifications-btn" class="btn btn-secondary">Notifiche Studenti (${count ?? 0})</button>`;
+            adminActionsDiv.innerHTML = `<button id="manage-students-btn" class="btn btn-primary">Gestione Allievi</button><button id="view-schedule-btn" class="btn btn-primary">Visualizza Orari Generali</button><button id="admin-tools-btn" class="btn btn-danger">Strumenti Admin</button><button id="manage-schedule-btn" class="btn btn-secondary">Impostazioni Calendario</button><button id="reset-calendar-settings-btn" class="btn btn-danger">Reset Impostazioni Calendario</button>`;
         };
 
         const logout = () => {
@@ -351,6 +349,8 @@
             const pastBookings = allBookings.filter(b => new Date(b.date + 'T00:00:00') < today);
 
             const futureCount = futureBookings.length;
+            const pastCountWithAbsences = pastBookings.length; // Somma aritmetica di tutte le passate (svolte + assenze)
+            const absentsCount = pastBookings.filter(b => b.is_absent).length;
             const used = state.currentUser.changes_used ?? 0;
             const allowed = state.currentUser.changes_allowed ?? 0;
 
@@ -358,6 +358,14 @@
             if (futureCount > 0) {
                 counterHTML += `<div style="text-align:center; font-size: 1.1rem; color: #333; margin-bottom: 0.5rem; border: 1px solid #eee; padding: 0.75rem; border-radius: 8px; background-color: #f8f9fa;">Hai <strong>${futureCount}</strong> lezioni in programma.</div>`;
             }
+            
+            // AGGIUNTA STATISTICHE NELLA HOME ALLIEVO
+            counterHTML += `
+            <div style="display: flex; justify-content: space-around; text-align: center; margin-bottom: 1rem; padding: 0.5rem; background: #fff; border: 1px solid #ddd; border-radius: 6px;">
+                <div><span style="display:block; font-size:1.2rem; font-weight:bold; color:var(--success-color);">${pastCountWithAbsences}</span><small style="color:#666;">Totale Svolte + Assenze</small></div>
+                <div><span style="display:block; font-size:1.2rem; font-weight:bold; color:var(--danger-color);">${absentsCount}</span><small style="color:#666;">Assenze</small></div>
+            </div>`;
+
             counterHTML += `<div style="text-align:center; font-size: 0.9rem; color: #666; margin-bottom: 1.5rem;">Cambi utilizzati: <strong>${used} / ${allowed}</strong></div>`;
             counterDisplay.innerHTML = counterHTML;
 
@@ -733,6 +741,7 @@
                 
                 const absentsCount = pastBookings.filter(b => b.is_absent).length;
                 const completedCount = pastBookings.length; 
+                const totalLessonsWithAbsences = completedCount;
 
                 return `
                 <div class="student-list-item" data-code="${student.code}">
@@ -747,7 +756,7 @@
                     <div class="student-details">
                         <div class="student-stats">
                             <div class="stat-item"><span>${futureBookings.length}</span>In programma</div>
-                            <div class="stat-item"><span>${completedCount}</span>Totale Svolte</div>
+                            <div class="stat-item"><span>${totalLessonsWithAbsences}</span>Totale Svolte + Assenze</div>
                             <div class="stat-item"><span style="color:var(--danger-color);">${absentsCount}</span>Assenze</div>
                         </div>
                         <div style="font-size:0.85rem; margin-bottom:1rem; padding:0.5rem; background:#f1f3f5; border-radius:4px;">
@@ -763,25 +772,6 @@
                     </div>
                 </div>`;
             }).join('') || '<p style="text-align:center; padding:1rem;">Nessun allievo trovato.</p>';
-        };
-
-        const renderNotifications = async () => {
-            const listDiv = document.getElementById('notifications-list');
-            listDiv.innerHTML = 'Caricamento...';
-            showLoading(true);
-            const { data, error } = await supabase.from('notifications').select('*, bookings(*)').eq('status', 'pending').order('created_at', { ascending: false });
-            showLoading(false);
-            if (error) return alert("Errore notifiche");
-
-            listDiv.innerHTML = data.map(n => `
-                <div class="notification-item" data-id="${n.id}" data-booking-id="${n.booking_id}">
-                    <p style="margin:0; font-weight:500;">${n.message}</p>
-                    <div class="notification-actions">
-                        <button class="btn btn-success btn-sm btn-accept-notification">Accetta e Cancella Lezione</button>
-                        <button class="btn btn-danger btn-sm btn-reject-notification">Rifiuta Richiesta</button>
-                    </div>
-                </div>
-            `).join('') || '<p style="text-align:center; padding:1rem;">Nessuna notifica in sospeso.</p>';
         };
 
         const renderWeeklySchedule = async () => {
@@ -866,7 +856,6 @@
             container.innerHTML = html || '<p style="text-align:center; color:#666;">Nessuna sede presente.</p>';
         };
 
-        // --- GESTIONE DEI VARI EVENTI DEL DOM ---
         document.getElementById('login-btn').addEventListener('click', login);
         document.getElementById('logout-btn').addEventListener('click', logout);
         
@@ -896,14 +885,26 @@
                 navigateTo('admin-tools-screen');
             }
             if (e.target.id === 'manage-schedule-btn') { await renderScheduleSettings(); navigateTo('schedule-settings-screen'); }
-            if (e.target.id === 'view-notifications-btn') { await renderNotifications(); navigateTo('notifications-screen'); }
+            
+            if (e.target.id === 'reset-calendar-settings-btn') {
+                if (confirm("Sei sicuro di voler resettare tutte le impostazioni e sedi del calendario?\n\nQuesta azione svuoterà la configurazione orari e sedi ma NON toccherà i codici degli allievi.")) {
+                    showLoading(true);
+                    const { error } = await supabase.from('schedule_config').delete().neq('location', '___forza_svuotamento_totale___');
+                    showLoading(false);
+                    if (error) {
+                        alert("Errore durante il reset: " + error.message);
+                    } else {
+                        alert("Impostazioni del calendario resettate con successo.");
+                        await loadInitialData();
+                    }
+                }
+            }
         });
 
         document.getElementById('back-to-main-from-student-list-btn').addEventListener('click', () => navigateTo('main-screen'));
         document.getElementById('back-to-main-from-schedule-btn').addEventListener('click', () => navigateTo('main-screen'));
         document.getElementById('back-to-main-from-admin-tools-btn').addEventListener('click', () => navigateTo('main-screen'));
         document.getElementById('back-to-main-from-schedule-settings-btn').addEventListener('click', () => navigateTo('main-screen'));
-        document.getElementById('back-to-main-from-notifications-btn').addEventListener('click', () => navigateTo('main-screen'));
 
         document.getElementById('prev-week-btn').addEventListener('click', () => { state.scheduleCurrentDate.setDate(state.scheduleCurrentDate.getDate() - 7); renderWeeklySchedule(); });
         document.getElementById('next-week-btn').addEventListener('click', () => { state.scheduleCurrentDate.setDate(state.scheduleCurrentDate.getDate() + 7); renderWeeklySchedule(); });
@@ -1127,30 +1128,6 @@
             alert("Configurazioni salvate con successo.");
             await loadInitialData();
             navigateTo('main-screen');
-        });
-
-        document.getElementById('notifications-list').addEventListener('click', async (e) => {
-            const button = e.target.closest('button');
-            if (!button) return;
-            const item = button.closest('.notification-item');
-            const notificationId = item.dataset.id;
-            const bookingId = item.dataset.bookingId;
-
-            if (button.classList.contains('btn-accept-notification')) {
-                if (confirm("Sei sicuro di voler ACCETTARE la richiesta e cancellare la lezione liberando l'orario?")) {
-                    showLoading(true);
-                    await supabase.from('bookings').delete().eq('id', bookingId);
-                    await supabase.from('notifications').update({ status: 'replied', reply_message: "Richiesta accettata. Lezione rimossa e credito salvaguardato." }).eq('id', notificationId);
-                } else return;
-            } else if (button.classList.contains('btn-danger')) {
-                const reply = prompt("Inserisci la motivazione del rifiuto:");
-                if (reply === null) return;
-                showLoading(true);
-                await supabase.from('notifications').update({ status: 'replied', reply_message: reply.trim() ? `Richiesta Rifiutata: ${reply}` : "Richiesta non accettata dall'amministratore." }).eq('id', notificationId);
-            } else return;
-            showLoading(false); 
-            await renderNotifications(); 
-            await updateAdminUI();
         });
 
         blockModal.form.addEventListener('submit', handleSaveBlockRule);
