@@ -3,31 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Vocal Hub Online - Gestione Lezioni</title>
+    <title>Vocal Hub Online</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
-        :root { 
-            --header-bg: #000; 
-            --button-primary-bg: #ffc107; 
-            --button-primary-text: #000; 
-            --secondary-color: #6c757d; 
-            --success-color: #28a745; 
-            --danger-color: #dc3545; 
-            --light-color: #f8f9fa; 
-            --warning-color: #fd7e14; 
-            --info-color: #17a2b8; 
-        }
-        body { 
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; 
-            margin: 0; 
-            background-color: var(--light-color); 
-            display: flex; 
-            justify-content: center; 
-            align-items: center; 
-            min-height: 100vh; 
-            padding: 1rem 0; 
-        }
-        .app-container { width: 100%; max-width: 520px; background-color: white; border-radius: 8px; box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1); overflow: hidden; position: relative; }
+        :root { --header-bg: #000; --button-primary-bg: #ffc107; --button-primary-text: #000; --secondary-color: #6c757d; --success-color: #28a745; --danger-color: #dc3545; --light-color: #f8f9fa; --warning-color: #fd7e14; --info-color: #17a2b8; }
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; margin: 0; background-color: var(--light-color); display: flex; justify-content: center; align-items: center; min-height: 100vh; padding: 1rem 0; }
+        .app-container { width: 100%; max-width: 480px; background-color: white; border-radius: 8px; box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1); overflow: hidden; }
         header { background-color: var(--header-bg); color: white; padding: 1rem; text-align: center; font-weight: bold; position: relative; }
         .logout-btn { position: absolute; right: 1rem; top: 50%; transform: translateY(-50%); background: transparent; border: 1px solid white; color: white; padding: 0.25rem 0.5rem; border-radius: 4px; cursor: pointer; font-size: 0.8rem; }
         .screen { display: none; padding: 1rem; }
@@ -47,12 +28,8 @@
         .badge-danger { background-color: var(--danger-color); }
         .badge-warning { background-color: var(--warning-color); }
         .badge-info { background-color: var(--info-color); }
-        
-        /* Liste e tabelle */
         .list-item { display: flex; justify-content: space-between; align-items: center; padding: 0.5rem 0; border-bottom: 1px solid #eee; font-size: 0.9rem; }
         .list-item:last-child { border-bottom: none; }
-        
-        /* Calendario e Slot */
         .calendar-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; margin-bottom: 1rem; }
         .calendar-day { text-align: center; padding: 0.5rem 0; background-color: #f1f3f5; font-size: 0.8rem; cursor: pointer; border-radius: 4px; }
         .calendar-day.active { background-color: var(--button-primary-bg); font-weight: bold; }
@@ -61,926 +38,693 @@
         .slot-btn { padding: 0.5rem; text-align: center; border: 1px solid #ccc; border-radius: 4px; background: white; cursor: pointer; font-size: 0.85rem; }
         .slot-btn.selected { background-color: var(--info-color); color: white; border-color: var(--info-color); }
         .slot-btn.occupied { background-color: #e9ecef; color: #adb5bd; cursor: not-allowed; border-color: #dee2e6; }
-        
-        /* Modale overlay */
         .modal-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); display: none; justify-content: center; align-items: center; z-index: 1000; padding: 1rem; }
         .modal-content { background: white; padding: 1.5rem; border-radius: 8px; width: 100%; max-width: 400px; max-height: 85vh; overflow-y: auto; }
-        
-        .loading-overlay { position: absolute; top:0; left:0; width:100%; height:100%; background: rgba(255,255,255,0.7); display:none; justify-content:center; align-items:center; z-index:999; font-weight:bold; }
+        .loading-overlay { position: fixed; top:0; left:0; width:100%; height:100%; background: rgba(255,255,255,0.7); display:none; justify-content:center; align-items:center; z-index:9999; font-weight:bold; }
         .section-title { font-size: 1.1rem; font-weight: bold; margin: 1rem 0 0.5rem 0; border-bottom: 2px solid var(--header-bg); padding-bottom: 0.25rem; }
-        .scrollable-list { max-height: 200px; overflow-y: auto; border: 1px solid #eee; padding: 0.5rem; border-radius: 4px; }
+        .scrollable-list { max-height: 180px; overflow-y: auto; border: 1px solid #eee; padding: 0.5rem; border-radius: 4px; margin-bottom: 1rem; }
+        .nav-tabs { display: flex; border-bottom: 1px solid #ccc; margin-bottom: 1rem; }
+        .nav-tab { flex: 1; padding: 0.5rem; text-align: center; cursor: pointer; background: #f1f3f5; font-weight: bold; font-size: 0.9rem; }
+        .nav-tab.active { background: white; border: 1px solid #ccc; border-bottom: none; border-top-left-radius: 4px; border-top-right-radius: 4px; }
     </style>
 </head>
 <body>
+    <div id="loading" class="loading-overlay">Caricamento...</div>
+    <div class="app-container">
+        <header>
+            <span id="header-title">Vocal Hub Online</span>
+            <button id="logout-btn" class="logout-btn" style="display:none;">Logout</button>
+        </header>
 
-<div class="app-container">
-    <div id="loading" class="loading-overlay">Caricamento in corso...</div>
-    
-    <header>
-        <span id="app-title">Vocal Hub Online</span>
-        <button id="logout-button" class="logout-btn" style="display:none;">Logout</button>
-    </header>
-
-    <!-- 1. SCREEN LOGIN -->
-    <div id="login-screen" class="screen active">
-        <h2 style="text-align:center;">Accedi alla Piattaforma</h2>
-        <form id="login-form">
-            <div class="form-group">
-                <label for="login-code">Inserisci il tuo Codice Accesso:</label>
-                <input type="password" id="login-code" placeholder="Esempio: STUD123 o ADMIN99" required>
-            </div>
-            <button type="submit" class="btn btn-primary">Entra</button>
-        </form>
-    </div>
-
-    <!-- 2. SCREEN MAIN (STUDENT DASHBOARD) -->
-    <div id="student-screen" class="screen">
-        <div class="card">
-            <h3>Benvenuto, <span id="student-name">-</span></h3>
-            <div class="list-item"><span>Stato Account:</span> <span id="student-status" class="badge">Attivo</span></div>
-            <div class="list-item"><span>Crediti Rimanenti:</span> <strong id="student-credits">-</strong></div>
-            <div class="list-item"><span>Cambi Consentiti Rimanenti:</span> <strong id="student-allowance">-</strong></div>
+        <div id="login-screen" class="screen">
+            <h2 style="text-align:center; margin-top:0;">Accedi</h2>
+            <form id="login-form">
+                <div class="form-group">
+                    <label>Codice Personale</label>
+                    <input type="password" id="access-code-input" required placeholder="Inserisci il tuo codice">
+                </div>
+                <button type="submit" class="btn btn-primary">Entra</button>
+            </form>
         </div>
 
-        <div class="section-title">Lezioni in Programma</div>
-        <div id="student-upcoming-lessons" class="scrollable-list"></div>
-
-        <div class="section-title">Storico Lezioni (Svolte & Assenze)</div>
-        <div id="student-past-lessons" class="scrollable-list"></div>
-
-        <div class="section-title">Storico Richieste di Cambio/Notifiche</div>
-        <div id="student-history-changes" class="scrollable-list"></div>
-    </div>
-
-    <!-- 3. SCREEN ADMIN DASHBOARD -->
-    <div id="admin-screen" class="screen">
-        <h2>Pannello di Controllo Amministratore</h2>
-        
-        <div class="grid-2">
-            <button id="btn-nav-users" class="btn btn-primary">Gestione Allievi</button>
-            <button id="btn-nav-book" class="btn btn-info">Prenota Lezione</button>
-        </div>
-        <button id="btn-nav-rules" class="btn btn-secondary">Configura Orari & Chiusure</button>
-        <button id="btn-nav-notif" class="btn btn-warning">Notifiche e Richieste (<span id="admin-notif-count">0</span>)</button>
-
-        <div class="section-title">Prossime Lezioni di Oggi/Domani</div>
-        <div id="admin-dashboard-bookings" class="scrollable-list"></div>
-    </div>
-
-    <!-- 4. SCREEN ADMIN: GESTIONE UTENTI -->
-    <div id="admin-users-screen" class="screen">
-        <button class="btn btn-secondary btn-back-admin">Torna alla Dashboard</button>
-        <h3>Anagrafica Allievi</h3>
-        <button id="btn-add-user" class="btn btn-success">+ Nuovo Allievo</button>
-        <div id="admin-users-list" style="margin-top:1rem;"></div>
-    </div>
-
-    <!-- 5. SCREEN ADMIN: PRENOTAZIONE LEZIONI (SOLO ADMIN) -->
-    <div id="booking-screen" class="screen">
-        <button class="btn btn-secondary btn-back-admin">Torna alla Dashboard</button>
-        <h3>Inserimento Nuova Prenotazione</h3>
-        <form id="admin-booking-form">
-            <div class="form-group">
-                <label for="book-user-select">Seleziona Allievo:</label>
-                <select id="book-user-select" required></select>
+        <div id="student-screen" class="screen">
+            <div class="card" style="margin-top:0;">
+                <h3 style="margin-top:0; margin-bottom:0.5rem;" id="student-welcome">Benvenuto</h3>
+                <div class="list-item"><span>Stato Iscrizione:</span> <span id="student-status-badge" class="badge">--</span></div>
+                <div class="list-item"><span>Lezioni Rimanenti (Crediti):</span> <strong id="student-credits-count">--</strong></div>
+                <div class="list-item"><span>Bonus Cambi Disponibili:</span> <strong id="student-allowance-count">--</strong></div>
             </div>
-            <div class="form-group">
-                <label for="book-venue">Sede:</label>
-                <select id="book-venue" required>
-                    <option value="Sede Centrale">Sede Centrale</option>
-                    <option value="Succursale">Succursale</option>
-                </select>
-            </div>
-            <div class="form-group">
-                <label for="book-duration">Durata Lezione:</label>
-                <select id="book-duration" required>
-                    <option value="45">45 Minuti</option>
-                    <option value="60">60 Minuti</option>
-                </select>
-            </div>
-            <div class="form-group">
-                <label for="book-date">Data:</label>
-                <input type="date" id="book-date" required>
-            </div>
-
-            <div class="section-title">Seleziona Orario Inizio</div>
-            <div id="admin-slots-grid" class="slots-container">Seleziona una data per caricare gli slot disponibili...</div>
             
-            <div class="form-group" style="margin-top:1rem;">
-                <input type="checkbox" id="book-is-recurring"> <label style="display:inline;" for="book-is-recurring">Rendi Lezione Ricorrente (Settimanale)</label>
+            <div class="section-title">Le Lezioni in Programma</div>
+            <div id="student-upcoming-list" class="scrollable-list"></div>
+
+            <div class="section-title">Storico Lezioni Passate & Assenze</div>
+            <div id="student-past-list" class="scrollable-list"></div>
+
+            <div class="section-title">Storico Richieste di Cambio Orario</div>
+            <div id="student-notifications-history" class="scrollable-list"></div>
+        </div>
+
+        <div id="admin-screen" class="screen">
+            <div class="nav-tabs">
+                <div class="nav-tab active" data-target="admin-tab-bookings">Lezioni</div>
+                <div class="nav-tab" data-target="admin-tab-users">Allievi</div>
+                <div class="nav-tab" data-target="admin-tab-rules">Chiusure</div>
+                <div class="nav-tab" data-target="admin-tab-notif">Richieste (<span id="admin-badge-count">0</span>)</div>
             </div>
-            <div id="recurring-options" style="display:none;" class="card">
+
+            <div id="admin-tab-bookings" class="admin-tab-content">
+                <button id="admin-trigger-booking-btn" class="btn btn-info">Aggiungi / Pianifica Lezione</button>
+                <div class="section-title">Prossime Lezioni</div>
+                <div id="admin-all-bookings-list" class="scrollable-list" style="max-height:350px;"></div>
+            </div>
+
+            <div id="admin-tab-users" class="admin-tab-content" style="display:none;">
+                <button id="admin-add-user-btn" class="btn btn-success">+ Nuovo Allievo</button>
+                <div id="admin-users-list" style="margin-top:1rem;"></div>
+            </div>
+
+            <div id="admin-tab-rules" class="admin-tab-content" style="display:none;">
+                <button id="admin-add-rule-btn" class="btn btn-danger">+ Blocca Giorno o Sede</button>
+                <div class="section-title">Blocchi e Chiusure Attive</div>
+                <div id="admin-rules-list" class="scrollable-list"></div>
+            </div>
+
+            <div id="admin-tab-notif" class="admin-tab-content" style="display:none;">
+                <div id="admin-notifications-list"></div>
+            </div>
+        </div>
+    </div>
+
+    <div id="user-modal-overlay" class="modal-overlay">
+        <div class="modal-content">
+            <h3 id="user-modal-title" style="margin-top:0;">Nuovo Allievo</h3>
+            <form id="user-modal-form">
+                <input type="hidden" id="user-id-hidden">
                 <div class="form-group">
-                    <label for="book-recurring-weeks">Numero di settimane consecutive:</label>
-                    <input type="number" id="book-recurring-weeks" min="2" max="12" value="4">
-                </div>
-            </div>
-
-            <button type="submit" class="btn btn-success" style="margin-top:1rem;">Salva Prenotazione</button>
-        </form>
-    </div>
-
-    <!-- 6. SCREEN ADMIN: REGOLE E CHIUSURE -->
-    <div id="admin-rules-screen" class="screen">
-        <button class="btn btn-secondary btn-back-admin">Torna alla Dashboard</button>
-        <h3>Configurazione Sedi e Chiusure straordinarie</h3>
-        
-        <button id="btn-add-block" class="btn btn-danger">+ Blocca Slot / Chiusura</button>
-        
-        <div class="section-title">Regole Attive</div>
-        <div id="admin-rules-list" class="scrollable-list"></div>
-    </div>
-
-    <!-- 7. SCREEN ADMIN: NOTIFICHE / CAMBI -->
-    <div id="admin-notifications-screen" class="screen">
-        <button class="btn btn-secondary btn-back-admin">Torna alla Dashboard</button>
-        <h3>Richieste di Cambio Orario Ricevute</h3>
-        <div id="admin-notifications-list"></div>
-    </div>
-</div>
-
-<!-- MODALE: AGGIUNGI/MODIFICA UTENTE -->
-<div id="user-modal-overlay" class="modal-overlay">
-    <div class="modal-content">
-        <h3 id="user-modal-title">Nuovo Allievo</h3>
-        <form id="user-modal-form">
-            <input type="hidden" id="user-modal-id">
-            <div class="form-group">
-                <label for="user-modal-name">Nome Completo:</label>
-                <input type="text" id="user-modal-name" required>
-            </div>
-            <div class="form-group">
-                <label for="user-modal-code">Codice di Accesso:</label>
-                <input type="text" id="user-modal-code" required placeholder="Es. MARIO2026">
-            </div>
-            <div class="form-group">
-                <label for="user-modal-credits">Totale Crediti Acquistati:</label>
-                <input type="number" id="user-modal-credits" min="0" value="10" required>
-            </div>
-            <div class="form-group">
-                <label for="user-modal-allowance">Cambi Consentiti (Mese/Periodo):</label>
-                <input type="number" id="user-modal-allowance" min="0" value="2" required>
-            </div>
-            <div class="form-group">
-                <label for="user-modal-status">Stato Iscrizione:</label>
-                <select id="user-modal-status">
-                    <option value="active">Attivo</option>
-                    <option value="inactive">Inattivo</option>
-                </select>
-            </div>
-            <div class="form-group">
-                <label for="user-modal-notes">Note Private:</label>
-                <textarea id="user-modal-notes" rows="2"></textarea>
-            </div>
-            <button type="submit" class="btn btn-success">Salva</button>
-            <button type="button" id="user-modal-cancel" class="btn btn-secondary">Annulla</button>
-        </form>
-    </div>
-</div>
-
-<!-- MODALE: AGGIUNGI BLOCCO ORARIO / CHIUSURA -->
-<div id="block-modal-overlay" class="modal-overlay">
-    <div class="modal-content">
-        <h3>Nuovo Blocco / Chiusura Giornaliera</h3>
-        <form id="block-modal-form">
-            <div class="form-group">
-                <label for="block-venue">Sede:</label>
-                <select id="block-venue" required>
-                    <option value="Sede Centrale">Sede Centrale</option>
-                    <option value="Succursale">Succursale</option>
-                </select>
-            </div>
-            <div class="form-group">
-                <label for="block-date">Data:</label>
-                <input type="date" id="block-date" required>
-            </div>
-            <div class="form-group">
-                <label for="block-type">Tipo di Blocco:</label>
-                <select id="block-type" required>
-                    <option value="full_day">Intero Giorno (Chiusura Sede)</option>
-                    <option value="time_slot">Fascia Oraria Specifica</option>
-                </select>
-            </div>
-            <div id="block-time-group" class="grid-2" style="display:none;">
-                <div class="form-group">
-                    <label for="block-start-time">Dalle ore:</label>
-                    <input type="time" id="block-start-time">
+                    <label>Nome Completo</label>
+                    <input type="text" id="user-name" required>
                 </div>
                 <div class="form-group">
-                    <label for="block-end-time">Alle ore:</label>
-                    <input type="time" id="block-end-time">
+                    <label>Codice Accesso Univoco</label>
+                    <input type="text" id="user-code" required>
                 </div>
-            </div>
-            <div class="form-group">
-                <label for="block-reason">Motivazione (Opzionale):</label>
-                <input type="text" id="block-reason" placeholder="Es. Festività o Manutenzione">
-            </div>
-            <button type="submit" class="btn btn-danger">Applica ed Invia Notifiche</button>
-            <button type="button" id="block-modal-cancel" class="btn btn-secondary">Annulla</button>
-        </form>
+                <div class="form-group">
+                    <label>Pacchetto Crediti Acquistati</label>
+                    <input type="number" id="user-credits" min="0" required>
+                </div>
+                <div class="form-group">
+                    <label>Cambi consentiti nel periodo</label>
+                    <input type="number" id="user-allowance" min="0" required>
+                </div>
+                <div class="form-group">
+                    <label>Stato Iscrizione</label>
+                    <select id="user-status">
+                        <option value="active">Attiva</option>
+                        <option value="inactive">Non attiva / Sospesa</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Note Interne (Invisibili all'allievo)</label>
+                    <textarea id="user-notes" rows="2"></textarea>
+                </div>
+                <button type="submit" class="btn btn-success">Salva Allievo</button>
+                <button type="button" id="user-modal-cancel" class="btn btn-secondary">Annulla</button>
+            </form>
+        </div>
     </div>
-</div>
 
-<script>
-// --- CONFIGURAZIONE SUPABASE ---
-// RICORDA: Sostituisci qui sotto con le tue reali credenziali Supabase
-const SUPABASE_URL = "https://your-supabase-project.supabase.co"; 
-const SUPABASE_ANON_KEY = "your-anon-key";
-const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    <div id="block-modal-overlay" class="modal-overlay">
+        <div class="modal-content">
+            <h3 style="margin-top:0;">Configura Blocco Calendario</h3>
+            <form id="block-modal-form">
+                <div class="form-group">
+                    <label>Sede</label>
+                    <select id="block-venue" required>
+                        <option value="Sede Centrale">Sede Centrale</option>
+                        <option value="Succursale">Succursale</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Data di Chiusura</label>
+                    <input type="date" id="block-date" required>
+                </div>
+                <div class="form-group">
+                    <label>Tipo di Restrizione</label>
+                    <select id="block-type" required>
+                        <option value="full_day">Tutto il Giorno</option>
+                        <option value="time_slot">Fascia Oraria Parziale</option>
+                    </select>
+                </div>
+                <div id="block-time-inputs" class="grid-2" style="display:none;">
+                    <div class="form-group">
+                        <label>Ora Inizio</label>
+                        <input type="time" id="block-start">
+                    </div>
+                    <div class="form-group">
+                        <label>Ora Fine</label>
+                        <input type="time" id="block-end">
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Motivo della Chiusura</label>
+                    <input type="text" id="block-reason" placeholder="Es. Festività, Assenza Docente">
+                </div>
+                <button type="submit" class="btn btn-danger">Conferma e Notifica Studenti</button>
+                <button type="button" id="block-modal-cancel" class="btn btn-secondary">Chiudi</button>
+            </form>
+        </div>
+    </div>
 
-// --- STATO DELL'APPLICAZIONE ---
-let currentUser = null; 
-let selectedSlotTime = null;
-let pollInterval = null;
+    <div id="admin-book-modal-overlay" class="modal-overlay">
+        <div class="modal-content">
+            <h3 style="margin-top:0;">Pianifica Lezione per Allievo</h3>
+            <form id="admin-book-form">
+                <div class="form-group">
+                    <label>Seleziona Allievo</label>
+                    <select id="admin-book-user-select" required></select>
+                </div>
+                <div class="form-group">
+                    <label>Sede</label>
+                    <select id="admin-book-venue" required>
+                        <option value="Sede Centrale">Sede Centrale</option>
+                        <option value="Succursale">Succursale</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Durata</label>
+                    <select id="admin-book-duration" required>
+                        <option value="45">45 minuti</option>
+                        <option value="60">60 minuti</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Scegli Data</label>
+                    <input type="date" id="admin-book-date" required>
+                </div>
 
-// --- INIZIALIZZAZIONE ALL'AVVIO ---
-document.addEventListener("DOMContentLoaded", () => {
-    initEventListeners();
-});
+                <label style="display:block; font-weight:500; font-size:0.9rem; margin-bottom:0.25rem;">Orari Disponibili</label>
+                <div id="admin-book-slots" class="slots-container" style="max-height:150px; overflow-y:auto; border:1px solid #eee; padding:0.5rem; border-radius:4px;">
+                    Seleziona una data...
+                </div>
 
-function showLoading(show) {
-    document.getElementById("loading").style.display = show ? "flex" : "none";
-}
+                <div class="form-group" style="margin-top:1rem;">
+                    <input type="checkbox" id="admin-book-recurring"> <label for="admin-book-recurring" style="display:inline; font-weight:normal;">Lezione Ricorrente Settimanale</label>
+                </div>
+                <div id="admin-book-recurring-opts" style="display:none;" class="card">
+                    <div class="form-group" style="margin-bottom:0;">
+                        <label>Ripeti per quante settimane consecutive?</label>
+                        <input type="number" id="admin-book-weeks" min="2" max="12" value="4">
+                    </div>
+                </div>
 
-function navigateTo(screenId) {
-    if (screenId === 'booking-screen' && currentUser && currentUser.role !== 'admin') {
-        screenId = 'student-screen';
+                <button type="submit" class="btn btn-success" style="margin-top:1rem;">Registra Lezione</button>
+                <button type="button" id="admin-book-modal-cancel" class="btn btn-secondary">Annulla</button>
+            </form>
+        </div>
+    </div>
+
+    <script>
+    // Configurazione del client Supabase originale
+    const SUPABASE_URL = "https://your-supabase-project.supabase.co";
+    const SUPABASE_ANON_KEY = "your-anon-key";
+    const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+    let sessionUser = null;
+    let selectedBookingSlot = null;
+
+    const screens = {
+        login: document.getElementById('login-screen'),
+        student: document.getElementById('student-screen'),
+        admin: document.getElementById('admin-screen')
+    };
+
+    const blockModal = {
+        overlay: document.getElementById('block-modal-overlay'),
+        form: document.getElementById('block-modal-form'),
+        typeSelect: document.getElementById('block-type'),
+        timeInputs: document.getElementById('block-time-inputs')
+    };
+
+    const adminBookModal = {
+        overlay: document.getElementById('admin-book-modal-overlay'),
+        form: document.getElementById('admin-book-form'),
+        userSelect: document.getElementById('admin-book-user-select'),
+        venueSelect: document.getElementById('admin-book-venue'),
+        durationSelect: document.getElementById('admin-book-duration'),
+        dateInput: document.getElementById('admin-book-date'),
+        slotsContainer: document.getElementById('admin-book-slots'),
+        recurringCheckbox: document.getElementById('admin-book-recurring'),
+        recurringOptions: document.getElementById('admin-book-recurring-opts'),
+        cancelBtn: document.getElementById('admin-book-modal-cancel')
+    };
+
+    function showLoading(show) { document.getElementById('loading').style.display = show ? 'flex' : 'none'; }
+
+    function navigateTo(screenId) {
+        Object.values(screens).forEach(s => s.classList.remove('active'));
+        screens[screenId].classList.add('active');
+        document.getElementById('logout-btn').style.display = screenId === 'login' ? 'none' : 'block';
     }
-    
-    document.querySelectorAll(".screen").forEach(s => s.classList.remove("active"));
-    document.getElementById(screenId).classList.add("active");
-    if(currentUser) {
-        document.getElementById("logout-button").style.display = "block";
-    } else {
-        document.getElementById("logout-button").style.display = "none";
-    }
-}
 
-function initEventListeners() {
-    document.getElementById("login-form").addEventListener("submit", handleLogin);
-    document.getElementById("logout-button").addEventListener("click", handleLogout);
-    
-    document.querySelectorAll(".btn-back-admin").forEach(btn => {
-        btn.addEventListener("click", () => navigateTo("admin-screen"));
-    });
-
-    document.getElementById("btn-nav-users").addEventListener("click", () => { navigateTo("admin-users-screen"); renderAdminUsers(); });
-    document.getElementById("btn-nav-book").addEventListener("click", () => { navigateTo("booking-screen"); prepareBookingScreen(); });
-    document.getElementById("btn-nav-rules").addEventListener("click", () => { navigateTo("admin-rules-screen"); renderAdminRules(); });
-    document.getElementById("btn-nav-notif").addEventListener("click", () => { navigateTo("admin-notifications-screen"); renderNotifications(); });
-
-    document.getElementById("btn-add-user").addEventListener("click", () => openUserModal());
-    document.getElementById("user-modal-form").addEventListener("submit", saveUserModal);
-    document.getElementById("user-modal-cancel").addEventListener("click", () => document.getElementById("user-modal-overlay").style.display = "none");
-
-    document.getElementById("btn-add-block").addEventListener("click", () => {
-        document.getElementById("block-modal-form").reset();
-        document.getElementById("block-time-group").style.display = "none";
-        document.getElementById("block-modal-overlay").style.display = "flex";
-    });
-    document.getElementById("block-type").addEventListener("change", (e) => {
-        document.getElementById("block-time-group").style.display = e.target.value === "time_slot" ? "grid" : "none";
-    });
-    document.getElementById("block-modal-form").addEventListener("submit", saveBlockModal);
-    document.getElementById("block-modal-cancel").addEventListener("click", () => document.getElementById("block-modal-overlay").style.display = "none");
-
-    document.getElementById("book-date").addEventListener("change", loadAvailableSlots);
-    document.getElementById("book-venue").addEventListener("change", loadAvailableSlots);
-    document.getElementById("book-duration").addEventListener("change", loadAvailableSlots);
-    document.getElementById("book-is-recurring").addEventListener("change", (e) => {
-        document.getElementById("recurring-options").style.display = e.target.checked ? "block" : "none";
-    });
-    
-    document.getElementById("admin-booking-form").addEventListener("submit", saveAdminBooking);
-}
-
-// --- LOGICA DI AUTENTICAZIONE ---
-async function handleLogin(e) {
-    e.preventDefault();
-    const code = document.getElementById("login-code").value.trim();
-    if(!code) return;
-
-    showLoading(true);
-    try {
-        const { data, error } = await supabaseClient.from("users").select("*").eq("access_code", code).single();
-        if (error || !data) {
-            alert("Codice di accesso errato o non registrato.");
-            showLoading(false);
-            return;
-        }
-
-        currentUser = data;
-        document.getElementById("app-title").innerText = `Vocal Hub - ${currentUser.role === 'admin' ? 'Admin' : 'Allievo'}`;
-        
-        if (currentUser.role === "admin") {
-            navigateTo("admin-screen");
-            await updateAdminDashboard();
-            pollInterval = setInterval(() => { updateAdminDashboard(); }, 15000);
-        } else {
-            navigateTo("student-screen");
-            await updateStudentDashboard();
-            pollInterval = setInterval(() => { updateStudentDashboard(); }, 15000);
-        }
-    } catch (err) {
-        console.error(err);
-        alert("Errore di connessione al database.");
-    } finally {
-        showLoading(false);
-    }
-}
-
-function handleLogout() {
-    clearInterval(pollInterval);
-    currentUser = null;
-    document.getElementById("login-form").reset();
-    document.getElementById("app-title").innerText = "Vocal Hub Online";
-    navigateTo("login-screen");
-}
-
-// --- LATO STUDENTE: RENDERING & LOGICA ---
-async function updateStudentDashboard() {
-    if(!currentUser) return;
-    
-    const { data: userUpdated } = await supabaseClient.from("users").select("*").eq("id", currentUser.id).single();
-    if(userUpdated) currentUser = userUpdated;
-
-    document.getElementById("student-name").innerText = currentUser.name;
-    document.getElementById("student-status").innerText = currentUser.status === 'active' ? 'Attivo' : 'Sospeso';
-    document.getElementById("student-status").className = `badge ${currentUser.status === 'active' ? 'badge-success' : 'badge-danger'}`;
-    document.getElementById("student-allowance").innerText = currentUser.change_allowance;
-
-    const { data: bookings, error } = await supabaseClient.from("bookings")
-        .select("*")
-        .eq("user_id", currentUser.id)
-        .order("date", { ascending: true })
-        .order("start_time", { ascending: true });
-
-    const { data: notifications } = await supabaseClient.from("notifications")
-        .select("*")
-        .eq("user_id", currentUser.id)
-        .order("created_at", { ascending: false });
-
-    if(error) return;
-
-    const upcomingContainer = document.getElementById("student-upcoming-lessons");
-    const pastContainer = document.getElementById("student-past-lessons");
-    const historyChangesContainer = document.getElementById("student-history-changes");
-    
-    upcomingContainer.innerHTML = "";
-    pastContainer.innerHTML = "";
-    historyChangesContainer.innerHTML = "";
-
-    const now = new Date();
-    let totalUsedLessons = 0;
-
-    bookings.forEach(b => {
-        const bDateTime = new Date(`${b.date}T${b.start_time}`);
-        const isPast = bDateTime < now;
-
-        if (isPast || b.status === 'Assenza') {
-            totalUsedLessons++;
-        }
-
-        const item = document.createElement("div");
-        item.className = "list-item";
-        
-        let statusBadge = "";
-        if(b.status === 'Assenza') {
-            statusBadge = `<span class="badge badge-danger">Assenza (Conteggiata)</span>`;
-        } else if(isPast) {
-            statusBadge = `<span class="badge badge-success">Svolta</span>`;
-        } else {
-            statusBadge = `<span class="badge badge-info">Programmata</span>`;
-        }
-
-        item.innerHTML = `
-            <div>
-                <strong>${formatDate(b.date)} alle ${b.start_time.substring(0,5)}</strong><br>
-                <small>${b.venue} (${b.duration} min)</small>
-            </div>
-            <div>${statusBadge}</div>
-        `;
-
-        if(!isPast && b.status !== 'Assenza') {
-            const hoursDiff = (bDateTime - now) / (1000 * 60 * 60);
-            if(hoursDiff > 36 && currentUser.change_allowance > 0) {
-                const btnChange = document.createElement("button");
-                btnChange.className = "badge badge-warning";
-                btnChange.style.border = "none";
-                btnChange.style.cursor = "pointer";
-                btnChange.innerText = "Chiedi Cambio";
-                btnChange.onclick = () => requestLessonChange(b);
-                item.appendChild(btnChange);
+    function generateTimeSlots() {
+        let slots = [];
+        for (let h = 9; h < 20; h++) {
+            for (let m = 0; m < 60; m += 15) {
+                slots.push(`${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:00`);
             }
-            upcomingContainer.appendChild(item);
+        }
+        return slots;
+    }
+
+    function checkOverlap(s1, d1, s2, d2) {
+        let min1 = parseInt(s1.split(':')[0])*60 + parseInt(s1.split(':')[1]);
+        let end1 = min1 + parseInt(d1);
+        let min2 = parseInt(s2.split(':')[0])*60 + parseInt(s2.split(':')[1]);
+        let end2 = min2 + parseInt(d2);
+        return (min1 < end2 && min2 < end1);
+    }
+
+    async function handleLogin(e) {
+        e.preventDefault();
+        showLoading(true);
+        const code = document.getElementById('access-code-input').value.trim();
+        const { data, error } = await supabase.from('users').select('*').eq('access_code', code).maybeSingle();
+        showLoading(false);
+
+        if (error || !data) { alert("Codice errato o inesistente."); return; }
+        sessionUser = data;
+
+        if (sessionUser.role === 'admin') {
+            navigateTo('admin'); await updateAdminUI();
         } else {
-            pastContainer.appendChild(item);
-        }
-    });
-
-    const remainingCredits = currentUser.total_credits - totalUsedLessons;
-    document.getElementById("student-credits").innerText = remainingCredits < 0 ? 0 : remainingCredits;
-
-    if(upcomingContainer.innerHTML === "") upcomingContainer.innerHTML = "<p style='font-size:0.85rem;color:#777;'>Nessuna lezione programmata.</p>";
-    if(pastContainer.innerHTML === "") pastContainer.innerHTML = "<p style='font-size:0.85rem;color:#777;'>Nessuno storico lezioni passato.</p>";
-
-    if(notifications && notifications.length > 0) {
-        notifications.forEach(n => {
-            const nItem = document.createElement("div");
-            nItem.className = "list-item";
-            let statusLabel = "";
-            if(n.status === 'pending') statusLabel = "<span class='badge badge-warning'>In attesa</span>";
-            else if(n.status === 'approved') statusLabel = "<span class='badge badge-success'>Approvata</span>";
-            else statusLabel = "<span class='badge badge-danger'>Rifiutata/Risolta</span>";
-
-            nItem.innerHTML = `
-                <div style="max-width:70%;">
-                    <small class="badge badge-info">${formatDate(n.created_at.substring(0,10))}</small><br>
-                    <strong>Messaggio:</strong> ${n.message}<br>
-                    ${n.reply_message ? `<strong>Risposta Admin:</strong> ${n.reply_message}` : ''}
-                </div>
-                <div>${statusLabel}</div>
-            `;
-            historyChangesContainer.appendChild(nItem);
-        });
-    } else {
-        historyChangesContainer.innerHTML = "<p style='font-size:0.85rem;color:#777;'>Nessuna richiesta di cambio inviata.</p>";
-    }
-}
-
-async function requestLessonChange(booking) {
-    const reason = prompt("Indica il motivo della richiesta di spostamento e le tue disponibilità:");
-    if(!reason) return;
-
-    showLoading(true);
-    await supabaseClient.from("notifications").insert({
-        user_id: currentUser.id,
-        booking_id: booking.id,
-        type: "change_request",
-        message: `Richiesta spostamento lezione del ${formatDate(booking.date)} ore ${booking.start_time.substring(0,5)}. Motivo: ${reason}`,
-        status: "pending"
-    });
-
-    await supabaseClient.from("users").update({
-        change_allowance: currentUser.change_allowance - 1
-    }).eq("id", currentUser.id);
-
-    alert("Richiesta inviata all'amministratore con successo.");
-    await updateStudentDashboard();
-    showLoading(false);
-}
-
-// --- LATO ADMIN: GESTIONE DASHBOARD PRINCIPALE ---
-async function updateAdminDashboard() {
-    const { data: notifs } = await supabaseClient.from("notifications").select("id").eq("status", "pending");
-    document.getElementById("admin-notif-count").innerText = notifs ? notifs.length : 0;
-
-    const todayStr = new Date().toISOString().substring(0,10);
-    const { data: bookings } = await supabaseClient.from("bookings")
-        .select("*, users(name)")
-        .gte("date", todayStr)
-        .order("date", {ascending:true})
-        .order("start_time", {ascending:true})
-        .limit(15);
-
-    const listContainer = document.getElementById("admin-dashboard-bookings");
-    listContainer.innerHTML = "";
-
-    if(bookings && bookings.length > 0) {
-        bookings.forEach(b => {
-            const row = document.createElement("div");
-            row.className = "list-item";
-            row.innerHTML = `
-                <div>
-                    <strong>${b.users ? b.users.name : 'Utente rimosso'}</strong> - ${formatDate(b.date)} ore ${b.start_time.substring(0,5)}<br>
-                    <small>${b.venue} (${b.duration} min) - Stato: <strong>${b.status}</strong></small>
-                </div>
-                <div style="display:flex;gap:4px;">
-                    ${b.status !== 'Assenza' ? `<button class="badge badge-danger" style="border:none;cursor:pointer;" onclick="markAsAbsence('${b.id}')">Segna Assenza</button>` : ''}
-                    <button class="badge badge-secondary" style="border:none;cursor:pointer;" onclick="deleteBooking('${b.id}')">Elimina</button>
-                </div>
-            `;
-            listContainer.appendChild(row);
-        });
-    } else {
-        listContainer.innerHTML = "<p style='font-size:0.85rem;color:#777;'>Nessuna prenotazione imminente.</p>";
-    }
-}
-
-async function markAsAbsence(bookingId) {
-    if(!confirm("Segnare lo studente come assente? Questa lezione rimarrà conteggiata nello storico come lezione consumata.")) return;
-    showLoading(true);
-    await supabaseClient.from("bookings").update({ status: "Assenza" }).eq("id", bookingId);
-    await updateAdminDashboard();
-    showLoading(false);
-}
-
-async function deleteBooking(bookingId) {
-    if(!confirm("Sicuro di voler eliminare definitivamente questa prenotazione?")) return;
-    showLoading(true);
-    await supabaseClient.from("bookings").delete().eq("id", bookingId);
-    await updateAdminDashboard();
-    showLoading(false);
-}
-
-// --- ADMIN: PRENOTAZIONE ---
-async function prepareBookingScreen() {
-    showLoading(true);
-    document.getElementById("admin-booking-form").reset();
-    document.getElementById("recurring-options").style.display = "none";
-    document.getElementById("admin-slots-grid").innerHTML = "Seleziona una data per caricare gli slot disponibili...";
-    selectedSlotTime = null;
-
-    const { data: users } = await supabaseClient.from("users").select("id, name").eq("role", "student").order("name");
-    const selectEl = document.getElementById("book-user-select");
-    selectEl.innerHTML = '<option value="">-- Scegli Allievo --</option>';
-    if(users) {
-        users.forEach(u => {
-            selectEl.innerHTML += `<option value="${u.id}">${u.name}</option>`;
-        });
-    }
-    showLoading(false);
-}
-
-async function loadAvailableSlots() {
-    const dateVal = document.getElementById("book-date").value;
-    const venueVal = document.getElementById("book-venue").value;
-    const durationVal = parseInt(document.getElementById("book-duration").value);
-    const gridContainer = document.getElementById("admin-slots-grid");
-
-    if(!dateVal || !venueVal) return;
-    
-    gridContainer.innerHTML = "Verifica disponibilità...";
-    selectedSlotTime = null;
-
-    const { data: blocks } = await supabaseClient.from("availability_rules")
-        .select("*")
-        .eq("date", dateVal)
-        .eq("venue", venueVal);
-
-    if (blocks && blocks.some(b => b.type === "full_day")) {
-        gridContainer.innerHTML = "<span style='color:var(--danger-color); font-weight:bold; grid-column: 1/-1;'>Sede Chiusa / Giorno Bloccato</span>";
-        return;
-    }
-
-    const { data: bookings } = await supabaseClient.from("bookings")
-        .select("start_time, duration")
-        .eq("date", dateVal)
-        .eq("venue", venueVal);
-
-    let slots = [];
-    let startHour = 9, endHour = 20;
-    
-    for(let h = startHour; h < endHour; h++) {
-        for(let m = 0; m < 60; m += 15) {
-            let hh = String(h).padStart(2, '0');
-            let mm = String(m).padStart(2, '0');
-            slots.push(`${hh}:${mm}:00`);
+            navigateTo('student'); await updateStudentUI();
         }
     }
 
-    gridContainer.innerHTML = "";
-    
-    slots.forEach(timeStr => {
-        const timeDisplay = timeStr.substring(0,5);
-        const btn = document.createElement("button");
-        btn.type = "button";
-        btn.className = "slot-btn";
-        btn.innerText = timeDisplay;
+    // AGGIORNAMENTO DASHBOARD STUDENTE
+    async function updateStudentUI() {
+        // Aggiorna anagrafica real-time
+        const { data: userRefresh } = await supabase.from('users').select('*').eq('id', sessionUser.id).single();
+        if(userRefresh) sessionUser = userRefresh;
 
-        let isOccupied = false;
+        document.getElementById('student-welcome').innerText = `Ciao, ${sessionUser.name}`;
+        const sBadge = document.getElementById('student-status-badge');
+        sBadge.innerText = sessionUser.status === 'active' ? 'Attiva' : 'Sospesa';
+        sBadge.className = `badge ${sessionUser.status === 'active' ? 'badge-success' : 'badge-danger'}`;
+        document.getElementById('student-allowance-count').innerText = sessionUser.change_allowance;
+
+        // Carica lezioni
+        const { data: bookings } = await supabase.from('bookings').select('*').eq('user_id', sessionUser.id).order('date').order('start_time');
+        // Carica storico modifiche/richieste studente
+        const { data: notifications } = await supabase.from('notifications').select('*').eq('user_id', sessionUser.id).order('created_at', { ascending: false });
+
+        const upList = document.getElementById('student-upcoming-list');
+        const pastList = document.getElementById('student-past-list');
+        const notifHistoryList = document.getElementById('student-notifications-history');
+
+        upList.innerHTML = ''; pastList.innerHTML = ''; notifHistoryList.innerHTML = '';
+        const now = new Date();
+        let consumedCredits = 0;
 
         if(bookings) {
             bookings.forEach(b => {
-                if(checkOverlap(timeStr, durationVal, b.start_time, b.duration)) {
-                    isOccupied = true;
-                }
-            });
-        }
+                const bDate = new Date(`${b.date}T${b.start_time}`);
+                const isPast = bDate < now;
 
-        if(blocks) {
-            blocks.forEach(bl => {
-                if(bl.type === "time_slot") {
-                    if (timeStr >= bl.start_time && timeStr < bl.end_time) {
-                        isOccupied = true;
+                // REQUISITO: Le assenze contano comunque come lezioni fruite
+                if (isPast || b.status === 'Assenza') {
+                    consumedCredits++;
+                }
+
+                const div = document.createElement('div');
+                div.className = 'list-item';
+                let actionBtn = '';
+
+                if (!isPast && b.status !== 'Assenza') {
+                    let diffHours = (bDate - now) / (1000 * 60 * 60);
+                    if (diffHours > 36 && sessionUser.change_allowance > 0) {
+                        actionBtn = `<button class="badge badge-warning" style="border:none; cursor:pointer;" onclick="requestChange('${b.id}', '${b.date}', '${b.start_time}')">Chiedi Spostamento</button>`;
+                    } else {
+                        actionBtn = `<span class="badge badge-info">Fissata</span>`;
                     }
+                    div.innerHTML = `<div><strong>${formatDate(b.date)}</strong> alle ${b.start_time.substring(0,5)}<br><small>${b.venue} (${b.duration} min)</small></div><div>${actionBtn}</div>`;
+                    upList.appendChild(div);
+                } else {
+                    const statusLabel = b.status === 'Assenza' ? '<span class="badge badge-danger">Assenza (Conteggiata)</span>' : '<span class="badge badge-success">Svolta</span>';
+                    div.innerHTML = `<div><strong>${formatDate(b.date)}</strong> alle ${b.start_time.substring(0,5)}<br><small>${b.venue} (${b.duration} min)</small></div><div>${statusLabel}</div>`;
+                    pastList.appendChild(div);
                 }
             });
         }
 
-        if(isOccupied) {
-            btn.classList.add("occupied");
-            btn.disabled = true;
+        document.getElementById('student-credits-count').innerText = Math.max(0, sessionUser.total_credits - consumedCredits);
+
+        if(upList.innerHTML === '') upList.innerHTML = '<p style="color:#888; font-size:0.85rem; margin:0;">Nessuna lezione in programma.</p>';
+        if(pastList.innerHTML === '') pastList.innerHTML = '<p style="color:#888; font-size:0.85rem; margin:0;">Nessuno storico lezioni.</p>';
+
+        // Render Storico richieste cambi per lo studente
+        if(notifications && notifications.length > 0) {
+            notifications.forEach(n => {
+                const div = document.createElement('div');
+                div.className = 'list-item';
+                let stateBadge = n.status === 'pending' ? '<span class="badge badge-warning">In attesa</span>' : '<span class="badge badge-success">Risolta</span>';
+                div.innerHTML = `<div style="max-width:75%;"><small style="color:#666;">Richiesta del ${formatDate(n.created_at ? n.created_at.substring(0,10) : '')}</small><br><strong>Nota:</strong> ${n.message}<br>${n.reply_message ? `<small style="color:var(--info-color);"><b>Risposta:</b> ${n.reply_message}</small>` : ''}</div><div>${stateBadge}</div>`;
+                notifHistoryList.appendChild(div);
+            });
         } else {
-            btn.onclick = () => {
-                document.querySelectorAll(".slot-btn").forEach(b => b.classList.remove("selected"));
-                btn.classList.add("selected");
-                selectedSlotTime = timeStr;
-            };
+            notifHistoryList.innerHTML = '<p style="color:#888; font-size:0.85rem; margin:0;">Nessun cambio richiesto in passato.</p>';
         }
-
-        gridContainer.appendChild(btn);
-    });
-}
-
-function checkOverlap(start1, dur1, start2, dur2) {
-    const s1 = timeToMinutes(start1);
-    const e1 = s1 + parseInt(dur1);
-    const s2 = timeToMinutes(start2);
-    const e2 = s2 + parseInt(dur2);
-    return (s1 < e2 && s2 < e1);
-}
-
-function timeToMinutes(t) {
-    const parts = t.split(":");
-    return parseInt(parts[0]) * 60 + parseInt(parts[1]);
-}
-
-async function saveAdminBooking(e) {
-    e.preventDefault();
-    const userId = document.getElementById("book-user-select").value;
-    const venue = document.getElementById("book-venue").value;
-    const duration = document.getElementById("book-duration").value;
-    const date = document.getElementById("book-date").value;
-    const isRecurring = document.getElementById("book-is-recurring").checked;
-    const weeks = parseInt(document.getElementById("book-recurring-weeks").value) || 1;
-
-    if(!userId || !selectedSlotTime) {
-        alert("Seleziona un allievo e un orario valido.");
-        return;
     }
 
-    showLoading(true);
+    async function requestChange(bookingId, bDate, bTime) {
+        const note = prompt("Inserisci la motivazione dello spostamento e le tue nuove disponibilità orarie:");
+        if (!note) return;
 
-    try {
-        let bookingDates = [date];
-        
-        if(isRecurring && weeks > 1) {
-            let currentTemplateDate = new Date(date);
-            for(let i = 1; i < weeks; i++) {
-                currentTemplateDate.setDate(currentTemplateDate.getDate() + 7);
-                bookingDates.push(currentTemplateDate.toISOString().substring(0,10));
-            }
-        }
+        showLoading(true);
+        await supabase.from('notifications').insert({
+            user_id: sessionUser.id,
+            booking_id: bookingId,
+            type: 'change_request',
+            message: `Richiesta spostamento lezione del ${formatDate(bDate)} ${bTime.substring(0,5)}. Note: ${note}`,
+            status: 'pending'
+        });
 
-        for(let d of bookingDates) {
-            await supabaseClient.from("bookings").insert({
-                user_id: userId,
-                venue: venue,
-                date: d,
-                start_time: selectedSlotTime,
-                duration: duration,
-                status: "Regolare"
+        await supabase.from('users').update({ change_allowance: sessionUser.change_allowance - 1 }).eq("id", sessionUser.id);
+        await updateStudentUI();
+        showLoading(false);
+        alert("Richiesta inviata correttamente all'amministratore.");
+    }
+
+    // GESTIONE AMMINISTRATORE
+    async function updateAdminUI() {
+        const { data: pendingNotifs } = await supabase.from('notifications').select('id').eq('status', 'pending');
+        document.getElementById('admin-badge-count').innerText = pendingNotifs ? pendingNotifs.length : 0;
+        await renderAdminBookings();
+        await renderAdminUsers();
+        await renderAdminRules();
+        await renderNotifications();
+    }
+
+    async function renderAdminBookings() {
+        const list = document.getElementById('admin-all-bookings-list'); list.innerHTML = '';
+        const today = new Date().toISOString().substring(0,10);
+        const { data: bookings } = await supabase.from('bookings').select('*, users(name)').gte('date', today).order('date').order('start_time');
+
+        if(bookings && bookings.length > 0) {
+            bookings.forEach(b => {
+                const div = document.createElement('div');
+                div.className = 'list-item';
+                div.innerHTML = `
+                    <div><strong>${b.users ? b.users.name : 'Allievo Eliminato'}</strong><br><small>${formatDate(b.date)} alle ${b.start_time.substring(0,5)} - ${b.venue} (${b.status})</small></div>
+                    <div style="display:flex; gap:4px;">
+                        ${b.status !== 'Assenza' ? `<button class="badge badge-danger" style="border:none; cursor:pointer;" onclick="setAbsence('${b.id}')">Assenza</button>` : ''}
+                        <button class="badge badge-secondary" style="border:none; cursor:pointer;" onclick="deleteBooking('${b.id}')">Elimina</button>
+                    </div>`;
+                list.appendChild(div);
+            });
+        } else { list.innerHTML = '<p style="color:#888; font-size:0.85rem;">Nessuna prenotazione imminente.</p>'; }
+    }
+
+    async function setAbsence(id) {
+        if(!confirm("Contrassegnare la lezione come Assenza? Verrà scalata dai crediti.")) return;
+        showLoading(true);
+        await supabase.from('bookings').update({ status: 'Assenza' }).eq('id', id);
+        await updateAdminUI();
+        showLoading(false);
+    }
+
+    async function deleteBooking(id) {
+        if(!confirm("Vuoi eliminare definitivamente questa prenotazione?")) return;
+        showLoading(true);
+        await supabase.from('bookings').delete().eq('id', id);
+        await updateAdminUI();
+        showLoading(false);
+    }
+
+    async function renderAdminUsers() {
+        const list = document.getElementById('admin-users-list'); list.innerHTML = '';
+        const { data: users } = await supabase.from('users').select('*').eq('role', 'student').order('name');
+        if(users) {
+            users.forEach(u => {
+                const div = document.createElement('div'); div.className = 'card';
+                div.innerHTML = `<strong>${u.name}</strong> - Codice: <code>${u.access_code}</code><br>
+                <small>Crediti: ${u.total_credits} | Cambi Permessi: ${u.change_allowance} | Stato: ${u.status}</small><br>
+                ${u.notes ? `<small style="color:#666; display:block;">Note: ${u.notes}</small>` : ''}
+                <div style="margin-top:0.5rem; display:flex; gap:5px;">
+                    <button class="badge badge-info" style="border:none; cursor:pointer;" onclick="openUserModal('${u.id}')">Modifica</button>
+                    <button class="badge badge-danger" style="border:none; cursor:pointer;" onclick="deleteUser('${u.id}')">Rimuovi</button>
+                </div>`;
+                list.appendChild(div);
             });
         }
-
-        alert("Prenotazione/i salvata/e correttamente.");
-        navigateTo("admin-screen");
-        await updateAdminDashboard();
-    } catch(err) {
-        console.error(err);
-        alert("Errore durante il salvataggio.");
-    } finally {
-        showLoading(false);
     }
-}
 
-// --- ADMIN: ANAGRAFICA ALLIEVI ---
-async function renderAdminUsers() {
-    showLoading(true);
-    const { data: users, error } = await supabaseClient.from("users").select("*").eq("role", "student").order("name");
-    const container = document.getElementById("admin-users-list");
-    container.innerHTML = "";
-
-    if(users && users.length > 0) {
-        users.forEach(u => {
-            const item = document.createElement("div");
-            item.className = "card";
-            item.innerHTML = `
-                <strong>${u.name}</strong> (Codice: <code>${u.access_code}</code>)<br>
-                <small>Crediti Acquistati: ${u.total_credits} | Cambi Permessi: ${u.change_allowance}</small><br>
-                <small>Stato: <span class="badge ${u.status === 'active' ? 'badge-success' : 'badge-danger'}">${u.status}</span></small>
-                ${u.notes ? `<br><small style="color:gray;">Note: ${u.notes}</small>` : ''}
-                <div style="margin-top:0.5rem; display:flex; gap:5px;">
-                    <button class="btn btn-secondary" style="padding:2px 5px; font-size:0.8rem; margin:0;" onclick="openUserModal('${u.id}')">Modifica</button>
-                    <button class="btn btn-danger" style="padding:2px 5px; font-size:0.8rem; margin:0;" onclick="deleteUser('${u.id}')">Elimina</button>
-                </div>
-            `;
-            container.appendChild(item);
-        });
-    } else {
-        container.innerHTML = "<p>Nessun allievo presente.</p>";
+    function openUserModal(id = '') {
+        const form = document.getElementById('user-modal-form'); form.reset();
+        if(id) {
+            document.getElementById('user-modal-title').innerText = "Modifica Allievo";
+            supabase.from('users').select('*').eq('id', id).single().then(({data}) => {
+                if(data) {
+                    document.getElementById('user-id-hidden').value = data.id;
+                    document.getElementById('user-name').value = data.name;
+                    document.getElementById('user-code').value = data.access_code;
+                    document.getElementById('user-credits').value = data.total_credits;
+                    document.getElementById('user-allowance').value = data.change_allowance;
+                    document.getElementById('user-status').value = data.status;
+                    document.getElementById('user-notes').value = data.notes || '';
+                }
+            });
+        } else {
+            document.getElementById('user-id-hidden').value = '';
+            document.getElementById('user-modal-title').innerText = "Nuovo Allievo";
+        }
+        document.getElementById('user-modal-overlay').style.display = 'flex';
     }
-    showLoading(false);
-}
 
-async function openUserModal(userId = null) {
-    const modalForm = document.getElementById("user-modal-form");
-    modalForm.reset();
-    
-    if(userId) {
-        document.getElementById("user-modal-title").innerText = "Modifica Allievo";
+    async function handleSaveUser(e) {
+        e.preventDefault();
         showLoading(true);
-        const { data: u } = await supabaseClient.from("users").select("*").eq("id", userId).single();
-        if(u) {
-            document.getElementById("user-modal-id").value = u.id;
-            document.getElementById("user-modal-name").value = u.name;
-            document.getElementById("user-modal-code").value = u.access_code;
-            document.getElementById("user-modal-credits").value = u.total_credits;
-            document.getElementById("user-modal-allowance").value = u.change_allowance;
-            document.getElementById("user-modal-status").value = u.status;
-            document.getElementById("user-modal-notes").value = u.notes || "";
-        }
+        const id = document.getElementById('user-id-hidden').value;
+        const payload = {
+            name: document.getElementById('user-name').value,
+            access_code: document.getElementById('user-code').value.trim(),
+            total_credits: parseInt(document.getElementById('user-credits').value),
+            change_allowance: parseInt(document.getElementById('user-allowance').value),
+            status: document.getElementById('user-status').value,
+            notes: document.getElementById('user-notes').value,
+            role: 'student'
+        };
+        if(id) await supabase.from('users').update(payload).eq('id', id);
+        else await supabase.from('users').insert(payload);
+        document.getElementById('user-modal-overlay').style.display = 'none';
+        await updateAdminUI();
         showLoading(false);
-    } else {
-        document.getElementById("user-modal-title").innerText = "Nuovo Allievo";
-        document.getElementById("user-modal-id").value = "";
-    }
-    document.getElementById("user-modal-overlay").style.display = "flex";
-}
-
-async function saveUserModal(e) {
-    e.preventDefault();
-    const id = document.getElementById("user-modal-id").value;
-    const name = document.getElementById("user-modal-name").value;
-    const code = document.getElementById("user-modal-code").value;
-    const credits = document.getElementById("user-modal-credits").value;
-    const allowance = document.getElementById("user-modal-allowance").value;
-    const status = document.getElementById("user-modal-status").value;
-    const notes = document.getElementById("user-modal-notes").value;
-
-    showLoading(true);
-    const payload = {
-        name: name,
-        access_code: code,
-        total_credits: parseInt(credits),
-        change_allowance: parseInt(allowance),
-        status: status,
-        notes: notes,
-        role: "student"
-    };
-
-    if(id) {
-        await supabaseClient.from("users").update(payload).eq("id", id);
-    } else {
-        await supabaseClient.from("users").insert(payload);
     }
 
-    document.getElementById("user-modal-overlay").style.display = "none";
-    await renderAdminUsers();
-    showLoading(false);
-}
+    async function deleteUser(id) {
+        if(!confirm("Cancellando l'utente eliminerai anche tutte le sue prenotazioni. Procedere?")) return;
+        showLoading(true);
+        await supabase.from('bookings').delete().eq('user_id', id);
+        await supabase.from('users').delete().eq('id', id);
+        await updateAdminUI();
+        showLoading(false);
+    }
 
-async function deleteUser(userId) {
-    if(!confirm("Sicuro di voler cancellare l'allievo? Verranno rimosse anche le sue prenotazioni.")) return;
-    showLoading(true);
-    await supabaseClient.from("bookings").delete().eq("user_id", userId);
-    await supabaseClient.from("users").delete().eq("id", userId);
-    await renderAdminUsers();
-    showLoading(false);
-}
+    async function renderAdminRules() {
+        const list = document.getElementById('admin-rules-list'); list.innerHTML = '';
+        const { data: rules } = await supabase.from('availability_rules').select('*').order('date');
+        if(rules && rules.length > 0) {
+            rules.forEach(r => {
+                const div = document.createElement('div'); div.className = 'list-item';
+                const detail = r.type === 'full_day' ? 'Tutto il giorno' : `Fascia ${r.start_time.substring(0,5)}-${r.end_time.substring(0,5)}`;
+                div.innerHTML = `<div><strong>${r.venue}</strong> il ${formatDate(r.date)} (${detail})<br><small style="color:#777;">Motivo: ${r.reason || 'Nessuno'}</small></div>
+                <button class="badge badge-danger" style="border:none; cursor:pointer;" onclick="deleteRule('${r.id}')">Sblocca</button>`;
+                list.appendChild(div);
+            });
+        } else { list.innerHTML = '<p style="color:#888; font-size:0.85rem;">Nessun blocco impostato.</p>'; }
+    }
 
-// --- ADMIN: REGOLE DI CHIUSURA ---
-async function renderAdminRules() {
-    showLoading(true);
-    const { data: rules } = await supabaseClient.from("availability_rules").select("*").order("date");
-    const list = document.getElementById("admin-rules-list");
-    list.innerHTML = "";
-    
-    if(rules && rules.length > 0) {
-        rules.forEach(r => {
-            const div = document.createElement("div");
-            div.className = "list-item";
-            const detail = r.type === 'full_day' ? 'Intero Giorno' : `Fascia ${r.start_time.substring(0,5)}-${r.end_time.substring(0,5)}`;
-            div.innerHTML = `
-                <div>
-                    <strong>${r.venue}</strong> - ${formatDate(r.date)} (${detail})<br>
-                    <small style="color:gray;">Motivo: ${r.reason || 'Nessuno'}</small>
-                </div>
-                <button class="badge badge-danger" style="border:none;cursor:pointer;" onclick="deleteRule('${r.id}')">Rimuovi</button>
-            `;
-            list.appendChild(div);
+    async function handleSaveBlockRule(e) {
+        e.preventDefault();
+        showLoading(true);
+        const venue = document.getElementById('block-venue').value;
+        const date = document.getElementById('block-date').value;
+        const type = document.getElementById('block-type').value;
+        const reason = document.getElementById('block-reason').value;
+        const start = document.getElementById('block-start').value;
+        const end = document.getElementById('block-end').value;
+
+        await supabase.from('availability_rules').insert({
+            venue, date, type, reason,
+            start_time: type === 'time_slot' ? start + ":00" : null,
+            end_time: type === 'time_slot' ? end + ":00" : null
         });
-    } else {
-        list.innerHTML = "<p style='font-size:0.85rem;color:#777;'>Nessun blocco impostato.</p>";
-    }
-    showLoading(false);
-}
 
-async function saveBlockModal(e) {
-    e.preventDefault();
-    const venue = document.getElementById("block-venue").value;
-    const date = document.getElementById("block-date").value;
-    const type = document.getElementById("block-type").value;
-    const reason = document.getElementById("block-reason").value;
-    const startTime = document.getElementById("block-start-time").value;
-    const endTime = document.getElementById("block-end-time").value;
-
-    showLoading(true);
-
-    await supabaseClient.from("availability_rules").insert({
-        venue: venue,
-        date: date,
-        type: type,
-        start_time: type === 'time_slot' ? startTime + ":00" : null,
-        end_time: type === 'time_slot' ? endTime + ":00" : null,
-        reason: reason
-    });
-
-    let query = supabaseClient.from("bookings").select("*, users(id)").eq("venue", venue).eq("date", date);
-    const { data: targetedBookings } = await query;
-
-    if(targetedBookings) {
-        for(let tb of targetedBookings) {
-            let conflict = false;
-            if(type === 'full_day') {
-                conflict = true;
-            } else {
-                conflict = checkOverlap(tb.start_time, tb.duration, startTime + ":00", timeToMinutes(endTime) - timeToMinutes(startTime));
-            }
-
-            if(conflict) {
-                await supabaseClient.from("bookings").delete().eq("id", tb.id);
-                await supabaseClient.from("notifications").insert({
-                    user_id: tb.user_id,
-                    type: "system_alert",
-                    message: `ATTENZIONE: La tua lezione del ${formatDate(date)} ore ${tb.start_time.substring(0,5)} presso ${venue} è stata cancellata causa chiusura/blocco attività (${reason || 'Esigenze organizzative'}).`,
-                    status: "resolved"
-                });
+        const { data: targetBookings } = await supabase.from('bookings').select('*').eq('venue', venue).eq('date', date);
+        if(targetBookings) {
+            for(let b of targetBookings) {
+                let overlap = type === 'full_day' || checkOverlap(b.start_time, b.duration, start + ":00", (parseInt(end.split(':')[0])*60+parseInt(end.split(':')[1]))-(parseInt(start.split(':')[0])*60+parseInt(start.split(':')[1])));
+                if(overlap) {
+                    await supabase.from('bookings').delete().eq('id', b.id);
+                    await supabase.from('notifications').insert({
+                        user_id: b.user_id,
+                        type: 'system_alert',
+                        message: `CANCELLATA: La lezione del ${formatDate(date)} ore ${b.start_time.substring(0,5)} a ${venue} è stata annullata causa: ${reason || 'Chiusura Sede'}.`,
+                        status: 'resolved'
+                    });
+                }
             }
         }
+        blockModal.overlay.style.display = 'none';
+        await updateAdminUI();
+        showLoading(false);
     }
 
-    document.getElementById("block-modal-overlay").style.display = "none";
-    await renderAdminRules();
-    showLoading(false);
-}
+    async function deleteRule(id) {
+        showLoading(true); await supabase.from('availability_rules').delete().eq('id', id); await updateAdminUI(); showLoading(false);
+    }
 
-async function deleteRule(ruleId) {
-    showLoading(true);
-    await supabaseClient.from("availability_rules").delete().eq("id", ruleId);
-    await renderAdminRules();
-    showLoading(false);
-}
+    async function openAdminBookingModal() {
+        adminBookModal.form.reset();
+        adminBookModal.recurringOptions.style.display = 'none';
+        adminBookModal.slotsContainer.innerHTML = 'Seleziona una data...';
+        selectedBookingSlot = null;
 
-// --- ADMIN: GESTIONE NOTIFICHE RICHIESTE ---
-async function renderNotifications() {
-    showLoading(true);
-    const { data: notifs } = await supabaseClient.from("notifications")
-        .select("*, users(name)")
-        .eq("status", "pending")
-        .order("created_at", { ascending: false });
+        const { data: users } = await supabase.from('users').select('id, name').eq('role', 'student').order('name');
+        adminBookModal.userSelect.innerHTML = '<option value="">-- Seleziona Allievo --</option>';
+        if(users) users.forEach(u => adminBookModal.userSelect.innerHTML += `<option value="${u.id}">${u.name}</option>`);
 
-    const container = document.getElementById("admin-notifications-list");
-    container.innerHTML = "";
+        adminBookModal.overlay.style.display = 'flex';
+    }
 
-    if(notifs && notifs.length > 0) {
-        notifs.forEach(n => {
-            const card = document.createElement("div");
-            card.className = "card";
-            card.innerHTML = `
-                <div>
-                    <strong>Allievo:</strong> ${n.users ? n.users.name : 'Sconosciuto'}<br>
-                    <p style="margin:5px 0; font-size:0.9rem;">${n.message}</p>
-                </div>
-                <div class="form-group" style="margin-top:0.5rem;">
-                    <input type="text" id="reply-text-${n.id}" placeholder="Inserisci una nota o un nuovo orario proposto...">
-                </div>
-                <div class="grid-2">
-                    <button class="btn btn-success" style="padding:5px; margin:0; font-size:0.85rem;" onclick="resolveNotification('${n.id}', 'approved')">Segna come Gestita / Approvata</button>
-                    <button class="btn btn-danger" style="padding:5px; margin:0; font-size:0.85rem;" onclick="resolveNotification('${n.id}', 'rejected')">Rifiuta / Chiudi</button>
-                </div>
-            `;
-            container.appendChild(card);
+    async function loadAdminAvailableSlots() {
+        const date = adminBookModal.dateInput.value;
+        const venue = adminBookModal.venueSelect.value;
+        const duration = parseInt(adminBookModal.durationSelect.value);
+        if(!date || !venue) return;
+
+        adminBookModal.slotsContainer.innerHTML = 'Verifica disponibilità...';
+        selectedBookingSlot = null;
+
+        const { data: blocks } = await supabase.from('availability_rules').select('*').eq('date', date).eq('venue', venue);
+        if(blocks && blocks.some(b => b.type === 'full_day')) {
+            adminBookModal.slotsContainer.innerHTML = '<span style="color:var(--danger-color); font-weight:bold;">Sede Chiusa / Giorno Bloccato</span>';
+            return;
+        }
+
+        const { data: bookings } = await supabase.from('bookings').select('start_time, duration').eq('date', date).eq('venue', venue);
+        const slots = generateTimeSlots();
+        adminBookModal.slotsContainer.innerHTML = '';
+
+        slots.forEach(s => {
+            let occupied = false;
+            if(bookings) bookings.forEach(b => { if(checkOverlap(s, duration, b.start_time, b.duration)) occupied = true; });
+            if(blocks) blocks.forEach(bl => { if(bl.type === 'time_slot' && s >= bl.start_time && s < bl.end_time) occupied = true; });
+
+            const btn = document.createElement('button'); btn.type = 'button'; btn.className = 'slot-btn'; btn.innerText = s.substring(0,5);
+            if(occupied) { btn.classList.add('occupied'); btn.disabled = true; }
+            else {
+                btn.onclick = () => {
+                    document.querySelectorAll('#admin-book-slots .slot-btn').forEach(b => b.classList.remove('selected'));
+                    btn.classList.add('selected'); selectedBookingSlot = s;
+                };
+            }
+            adminBookModal.slotsContainer.appendChild(btn);
         });
-    } else {
-        container.innerHTML = "<p style='font-size:0.9rem; color: gray;'>Nessuna richiesta in attesa di elaborazione.</p>";
     }
-    showLoading(false);
-}
 
-async function resolveNotification(id, statusDecision) {
-    const replyText = document.getElementById(`reply-text-${id}`).value.trim();
-    showLoading(true);
-    
-    await supabaseClient.from("notifications").update({
-        status: statusDecision,
-        reply_message: replyText || (statusDecision === 'approved' ? "Richiesta approvata." : "Non è stato possibile approvare la richiesta.")
-    }).eq("id", id);
+    async function handleAdminSaveBooking(e) {
+        e.preventDefault();
+        const userId = adminBookModal.userSelect.value;
+        const venue = adminBookModal.venueSelect.value;
+        const duration = adminBookModal.durationSelect.value;
+        const date = adminBookModal.dateInput.value;
+        const recurring = adminBookModal.recurringCheckbox.checked;
+        const weeks = parseInt(document.getElementById('admin-book-weeks').value) || 1;
 
-    await renderNotifications();
-    await updateAdminDashboard();
-    showLoading(false);
-}
+        if(!userId || !selectedBookingSlot) { alert("Compila tutti i campi ed assegna un orario valido."); return; }
+        showLoading(true);
 
-// --- UTILITY PER LA FORMATTAZIONE DELLE DATE ---
-function formatDate(dateStr) {
-    if(!dateStr) return "";
-    const parts = dateStr.split("-");
-    if(parts.length !== 3) return dateStr;
-    return `${parts[2]}/${parts[1]}/${parts[0]}`;
-}
-</script>
+        let dates = [date];
+        if(recurring && weeks > 1) {
+            let d = new Date(date);
+            for(let i=1; i<weeks; i++) {
+                d.setDate(d.getDate() + 7);
+                dates.push(d.toISOString().substring(0,10));
+            }
+        }
 
+        for(let currentStr of dates) {
+            await supabase.from('bookings').insert({ user_id: userId, venue, date: currentStr, start_time: selectedBookingSlot, duration, status: 'Regolare' });
+        }
+
+        adminBookModal.overlay.style.display = 'none';
+        await updateAdminUI();
+        showLoading(false);
+        alert("Prenotazione registrata.");
+    }
+
+    async function renderNotifications() {
+        const list = document.getElementById('admin-notifications-list'); list.innerHTML = '';
+        const { data: notifs } = await supabase.from('notifications').select('*, users(name)').eq('status', 'pending').order('created_at', { ascending: false });
+
+        if(notifs && notifs.length > 0) {
+            notifs.forEach(n => {
+                const div = document.createElement('div'); div.className = 'card';
+                div.innerHTML = `
+                    <strong>Da: ${n.users ? n.users.name : 'Allievo'}</strong><br><p style="margin:5px 0;">${n.message}</p>
+                    <div class="form-group"><input type="text" id="reply-input-${n.id}" placeholder="Inserisci nota o risposta..."></div>
+                    <div class="grid-2">
+                        <button class="btn btn-success" style="padding:4px; margin:0; font-size:0.8rem;" onclick="resolveNotification('${n.id}', 'replied')">Accetta / Risolta</button>
+                        <button class="btn btn-danger" style="padding:4px; margin:0; font-size:0.8rem;" onclick="resolveNotification('${n.id}', 'resolved')">Rifiuta / Chiudi</button>
+                    </div>`;
+                list.appendChild(div);
+            });
+        } else { list.innerHTML = '<p style="color:#888; font-size:0.85rem;">Nessuna richiesta in attesa.</p>'; }
+    }
+
+    async function resolveNotification(id, status) {
+        const txt = document.getElementById(`reply-input-${id}`).value.trim();
+        showLoading(true);
+        await supabase.from('notifications').update({ status, reply_message: txt || "Gestita dall'amministratore." }).eq('id', id);
+        await updateAdminUI();
+        showLoading(false);
+    }
+
+    function formatDate(str) { if(!str) return ''; const p = str.split('-'); return p.length === 3 ? `${p[2]}/${p[1]}/${p[0]}` : str; }
+
+    document.addEventListener('DOMContentLoaded', () => {
+        document.getElementById('login-form').addEventListener('submit', handleLogin);
+        document.getElementById('logout-btn').addEventListener('click', () => { sessionUser = null; navigateTo('login'); });
+        
+        document.querySelectorAll('.nav-tab').forEach(tab => {
+            tab.addEventListener('click', (e) => {
+                document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
+                document.querySelectorAll('.admin-tab-content').forEach(c => c.style.display = 'none');
+                tab.classList.add('active'); document.getElementById(tab.dataset.target).style.display = 'block';
+            });
+        });
+
+        document.getElementById('admin-trigger-booking-btn').addEventListener('click', openAdminBookingModal);
+        adminBookModal.dateInput.addEventListener('change', loadAdminAvailableSlots);
+        adminBookModal.venueSelect.addEventListener('change', loadAdminAvailableSlots);
+        adminBookModal.durationSelect.addEventListener('change', loadAdminAvailableSlots);
+        adminBookModal.form.addEventListener('submit', handleAdminSaveBooking);
+        adminBookModal.cancelBtn.addEventListener('click', () => adminBookModal.overlay.style.display = 'none');
+        adminBookModal.recurringCheckbox.addEventListener('change', (e) => adminBookModal.recurringOptions.style.display = e.target.checked ? 'block' : 'none');
+
+        document.getElementById('admin-add-user-btn').addEventListener('click', () => openUserModal());
+        document.getElementById('user-modal-form').addEventListener('submit', handleSaveUser);
+        document.getElementById('user-modal-cancel').addEventListener('click', () => document.getElementById('user-modal-overlay').style.display = 'none');
+
+        document.getElementById('admin-add-rule-btn').addEventListener('click', () => { blockModal.form.reset(); blockModal.timeInputs.style.display = 'none'; blockModal.overlay.style.display = 'flex'; });
+        blockModal.typeSelect.addEventListener('change', (e) => blockModal.timeInputs.style.display = e.target.value === 'time_slot' ? 'grid' : 'none');
+        blockModal.form.addEventListener('submit', handleSaveBlockRule);
+        document.getElementById('block-modal-cancel').addEventListener('click', () => blockModal.overlay.style.display = 'none');
+
+        navigateTo('login-screen');
+    });
+    </script>
 </body>
 </html>
