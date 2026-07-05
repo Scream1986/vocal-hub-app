@@ -95,7 +95,7 @@
                 <div id="student-info-summary" style="display: none; margin-top: 1rem; padding: 0.75rem; background-color: #f8f9fa; border: 1px solid #eee; border-radius: 8px;"></div>
                 <div id="student-bookings-summary" style="margin-top: 1.5rem;"></div>
                 <hr>
-                <p style="text-align:center;">Seleziona una sede per prenotare una nuova lezione:</p>
+                <p id="booking-instruction-text" style="text-align:center;">Seleziona una sede per visualizzare il calendario lezioni:</p>
                 <div id="location-buttons-container"></div>
                 <div id="admin-actions" style="margin-top: 1.5rem;"></div>
                 <button id="logout-btn" class="btn btn-logout">Esci</button>
@@ -109,6 +109,7 @@
             <div id="notifications-screen" class="screen"><h2>Notifiche Studenti</h2><div id="notifications-list"></div><button id="back-to-main-from-notifications-btn" class="btn btn-secondary">Torna Indietro</button></div>
         </main>
     </div>
+    
     <div id="user-modal-overlay" class="modal-overlay"><div class="modal-content"><h4 id="user-modal-title"></h4><div class="form-group"><label for="user-modal-name">Nome Allievo</label><input type="text" id="user-modal-name"></div><div class="form-group"><label for="user-modal-code">Codice Allievo</label><input type="text" id="user-modal-code" autocomplete="off"></div><div class="modal-buttons"><button id="user-modal-cancel" class="btn btn-secondary">Annulla</button><button id="user-modal-save" class="btn btn-primary">Salva</button></div></div></div>
 
     <div id="block-modal-overlay" class="modal-overlay">
@@ -178,26 +179,7 @@
         </div>
     </div>
 
-
     <script>
-    // <!-- 
-    // NOTA BENE: Per far funzionare le nuove funzioni (Assenze, Reg., Credito),
-    // devi aggiungere le seguenti colonne al tuo database Supabase:
-    //
-    // 1. Tabella: 'bookings'
-    //    - Colonna: 'is_absent'
-    //    - Tipo: 'bool' (boolean)
-    //    - Default Value: 'false'
-    //
-    // 2. Tabella: 'users'
-    //    - Colonna: 'is_regular'
-    //    - Tipo: 'bool' (boolean)
-    //    - Default Value: 'false'
-    //
-    // 3. Tabella: 'users'
-    //    - Colonna: 'credit_status'
-    //    - Tipo: 'text'
-    // -->
     document.addEventListener('DOMContentLoaded', () => {
         const supabaseUrl = 'https://esxpbpxdhqijsomqmrvr.supabase.co';
         const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVzeHBicHhkaHFpanNvbXFtcnZyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTUxNjExODYsImV4cCI6MjA3MDczNzE4Nn0.5WuPwviEzanny9ky0IgMIgFo4N83t8dQTUZsbp2wEnk';
@@ -264,16 +246,14 @@
                 if (user.role === 'admin') {
                     updateAdminUI();
                     document.getElementById('student-info-summary').style.display = 'none';
+                    document.getElementById('booking-instruction-text').textContent = "Seleziona una sede per gestire le prenotazioni:";
                 } else { 
                     checkStudentReplies(); 
                     renderStudentBookingSummary(); 
+                    document.getElementById('booking-instruction-text').textContent = "Seleziona una sede per vedere il calendario:";
                     
-                    // --- NUOVO CODICE per Riepilogo Allievo ---
                     const summaryDiv = document.getElementById('student-info-summary');
-                    
-                    // <!-- ***** QUESTA È LA RIGA CORRETTA ***** -->
-                    summaryDiv.style.display = 'block'; // Assicura che sia visibile
-                    // <!-- ************************************ -->
+                    summaryDiv.style.display = 'block';
 
                     let summaryHTML = '<h4 style="margin-top:0; margin-bottom: 0.5rem; text-align: left;">Stato Account</h4>';
                     summaryHTML += `<div style="display: flex; justify-content: space-between; align-items: center; font-size: 0.9rem;">`;
@@ -292,7 +272,6 @@
                     
                     summaryHTML += `</div>`;
                     summaryDiv.innerHTML = summaryHTML;
-                    // --- FINE NUOVO CODICE ---
                 }
                 navigateTo('main-screen');
             } else {
@@ -347,7 +326,7 @@
             document.getElementById('admin-actions').innerHTML = '';
             document.getElementById('student-bookings-summary').innerHTML = '';
             document.getElementById('student-info-summary').innerHTML = '';
-            document.getElementById('student-info-summary').style.display = 'none'; // Nascondi al logout
+            document.getElementById('student-info-summary').style.display = 'none';
         };
         
         const renderStudentBookingSummary = async () => {
@@ -391,10 +370,10 @@
                     return `<div class="booked-slot"><span><strong>${lessonStart.toLocaleDateString('it-IT', {weekday: 'long', day: 'numeric', month: 'long'})}</strong><br><small>Ore: ${formatTime(booking.start_time)} - ${formatTime(booking.end_time)} (${booking.location})</small></span><button class="btn-request-change" data-booking-id="${booking.id}" ${canRequestChange ? '' : 'disabled'}>${canRequestChange ? 'Richiedi Cambio' : 'Scaduto'}</button></div>`;
                 }).join('');
             } else {
-                summaryHtml += "<p style='text-align:center;'>Nessuna lezione futura prenotata.</p>";
+                summaryHtml += "<p style='text-align:center;'>Nessuna lezione futura in programma.</p>";
             }
 
-            summaryHtml += '<hr style="margin: 1.5rem 0;"><h4>Storico Lezioni</h4>';
+            summaryHtml += '<hr style="margin: 1.5rem 0;"><h4>Storico Lezioni e Cambi</h4>';
             if (pastBookings.length > 0) {
                 summaryHtml += pastBookings.map(booking => {
                     const lessonDate = new Date(`${booking.date}T00:00:00`);
@@ -404,11 +383,11 @@
                                     <br>
                                     <small>Ore: ${formatTime(booking.start_time)} - ${formatTime(booking.end_time)} (${booking.location})</small>
                                 </span>
-                                ${booking.is_absent ? '<span style="font-weight: bold; color: var(--danger-color); margin-left: 1rem; font-size: 0.9rem;">ASSENZA</span>' : ''}
+                                ${booking.is_absent ? '<span style="font-weight: bold; color: var(--danger-color); margin-left: 1rem; font-size: 0.9rem;">ASSENZA (Conteggiata)</span>' : '<span style="font-weight: bold; color: var(--success-color); margin-left: 1rem; font-size: 0.9rem;">Svolta</span>'}
                             </div>`;
                 }).join('');
             } else {
-                summaryHtml += "<p style='text-align:center;'>Nessuna lezione passata trovata.</p>";
+                summaryHtml += "<p style='text-align:center;'>Nessuna lezione passata in archivio.</p>";
             }
             summaryDiv.innerHTML = summaryHtml;
         };
@@ -465,15 +444,17 @@
                     document.getElementById('booking-admin-actions').innerHTML = '';
                 }
             }
+
             const slotsContent = document.getElementById('slots-content');
             if (!isPolling) slotsContent.innerHTML = 'Aggiornamento...';
-            
+
             const selectedDayOfWeek = state.selectedDate.getDay();
+
             const [bookingsRes, rulesRes] = await Promise.all([
                 supabase.from('bookings').select('*, users(name, code)').eq('date', dateStr).eq('location', state.currentLocation),
                 supabase.from('availability_rules').select('*').eq('location', state.currentLocation).eq('day_of_week', selectedDayOfWeek).lte('start_date', dateStr)
             ]);
-            
+
             if (bookingsRes.error || rulesRes.error) return console.error("Errore caricamento dati:", bookingsRes.error, rulesRes.error);
 
             const bookings = bookingsRes.data;
@@ -482,13 +463,14 @@
             const startHour = parseInt(locationConfig.start_time.split(':')[0]);
             const endHour = parseInt(locationConfig.end_time.split(':')[0]);
             const slotsMap = new Map();
+
             for (let h = startHour; h < endHour; h++) {
                 for (let m = 0; m < 60; m += 15) {
                     const time = `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`;
                     slotsMap.set(time, { status: 'free', booking: null });
                 }
             }
-            
+
             const applyRule = (ruleType, startTime, endTime) => {
                 for (const [time, slot] of slotsMap.entries()) {
                     if (time >= startTime && time < endTime) {
@@ -515,957 +497,660 @@
             if (state.currentUser.role === 'admin') {
                 let adminHtml = '<div class="admin-time-grid">';
                 for(const [time, slot] of slotsMap.entries()){
-                    const tooltip = slot.status === 'booked' ? `Occupato da: ${slot.booking.users.name}` : `Stato: ${slot.status}`;
-                    adminHtml += `<div class="time-slot ${slot.status}" data-time="${time}" title="${tooltip}" data-booking='${slot.booking ? JSON.stringify(slot.booking) : null}'>${time}</div>`;
+                    let tooltip = 'Stato: Libero';
+                    let labelTime = time;
+                    if (slot.status === 'booked') {
+                        tooltip = `Occupato da: ${slot.booking.users?.name || 'Allievo'} ${slot.booking.is_absent ? '(ASSENTE)' : ''}`;
+                        if(slot.booking.is_absent) labelTime += ' ❌';
+                    } else if (slot.status === 'blocked') {
+                        tooltip = 'Stato: Bloccato';
+                    }
+                    adminHtml += `<div class="time-slot ${slot.status}" data-time="${time}" title="${tooltip}" data-booking='${slot.booking ? JSON.stringify(slot.booking) : null}'>${labelTime}</div>`;
                 }
                 adminHtml += '</div>';
                 slotsContent.innerHTML = adminHtml;
             } else {
-                 const isTimespanFree = (start, end) => {
-                    const startTime = start.toTimeString().substring(0, 5);
-                    const endTime = end.toTimeString().substring(0, 5);
-                    for (let [time, slot] of slotsMap.entries()) {
-                        if (time >= startTime && time < endTime && slot.status !== 'free') {
-                            return false;
-                        }
+                let studentHtml = '<div class="admin-time-grid">';
+                for(const [time, slot] of slotsMap.entries()){
+                    let displayStatus = 'free';
+                    let tooltip = 'Disponibile';
+                    if (slot.status === 'booked') {
+                        displayStatus = 'booked';
+                        tooltip = 'Orario Occupato';
+                    } else if (slot.status === 'blocked') {
+                        displayStatus = 'blocked';
+                        tooltip = 'Non Disponibile';
                     }
-                    return true;
-                };
-
-                const getAvailableSlots = (duration) => {
-                    const available = new Set(), now = new Date();
-                    const potentialStarts = new Set([formatTime(locationConfig.start_time)]);
-                    
-                    for (const [time, slot] of slotsMap.entries()) {
-                        if (slot.status === 'free') {
-                           const prevTime = new Date(`${dateStr}T${time}`);
-                           prevTime.setMinutes(prevTime.getMinutes() - 15);
-                           const prevTimeStr = prevTime.toTimeString().substring(0, 5);
-                           if (!slotsMap.has(prevTimeStr) || slotsMap.get(prevTimeStr).status !== 'free') {
-                               potentialStarts.add(time);
-                           }
-                        }
-                    }
-
-                    potentialStarts.forEach(timeStr => {
-                        const start = new Date(`${dateStr}T${timeStr}`);
-                        if ((start - now) / 36e5 > 12 && start.getTime() + duration * 60000 <= endOfDayTime.getTime() && isTimespanFree(start, new Date(start.getTime() + duration * 60000))) {
-                            available.add(timeStr);
-                        }
-                    });
-                    return Array.from(available).sort();
-                };
-                const slots45 = getAvailableSlots(45), slots60 = getAvailableSlots(60);
-                let html = `<h4>Crea Nuova Prenotazione</h4>`;
-                if (slots45.length === 0 && slots60.length === 0) html += "<p>Nessun orario disponibile per nuove prenotazioni.</p>";
-                else {
-                    html += '<div class="student-time-slots">';
-                    if (slots45.length > 0) html += '<h5>Lezione da 45 minuti</h5>' + slots45.map(slot => `<div class="available-slot"><span>Inizio ore: <strong>${slot}</strong></span><button class="btn-book" data-time="${slot}" data-duration="45">Prenota</button></div>`).join('');
-                    if (slots60.length > 0) html += '<h5>Lezione da 60 minuti</h5>' + slots60.map(slot => `<div class="available-slot"><span>Inizio ore: <strong>${slot}</strong></span><button class="btn-book" data-time="${slot}" data-duration="60">Prenota</button></div>`).join('');
-                    html += '</div>';
+                    studentHtml += `<div class="time-slot ${displayStatus}" style="cursor: default;" title="${tooltip}">${time}</div>`;
                 }
-                slotsContent.innerHTML = html;
+                studentHtml += '</div><p style="text-align: center; margin-top: 1rem; color: #666; font-size: 0.9rem;">⚠️ Nota: Le prenotazioni possono essere inserite solo dall\'amministratore.</p>';
+                slotsContent.innerHTML = studentHtml;
             }
         };
 
-        const openBlockModal = (startTime, isBlocked) => {
-            blockModal.form.reset();
-            blockModal.form.dataset.startTime = startTime;
-            blockModal.info.textContent = `Giorno: ${state.selectedDate.toLocaleDateString('it-IT', {weekday: 'long'})} | Orario inizio: ${startTime}`;
-            
-            const nextSlotTime = new Date(`${formatDate(state.selectedDate)}T${startTime}`);
-            nextSlotTime.setMinutes(nextSlotTime.getMinutes() + 15);
-            blockModal.endTime.value = nextSlotTime.toTimeString().substring(0, 5);
-
-            blockModal.blockBtn.style.display = isBlocked ? 'none' : 'inline-block';
-            blockModal.unblockBtn.style.display = isBlocked ? 'inline-block' : 'none';
-
-            blockModal.overlay.style.display = 'flex';
+        const handleCalendarClick = (e) => {
+            const dayEl = e.target.closest('.calendar-day.valid');
+            if (!dayEl) return;
+            const dateStr = dayEl.dataset.date;
+            renderTimeSlots(dateStr);
+            if (state.calendarPollingInterval) clearInterval(state.calendarPollingInterval);
+            state.calendarPollingInterval = setInterval(() => renderTimeSlots(dateStr, true), 5000);
         };
 
-        const handleSaveBlockRule = async (e) => {
-            e.preventDefault();
-            const ruleType = e.submitter.id === 'block-modal-block' ? 'BLOCK' : 'UNBLOCK';
+        const handleTimeSlotClick = async (e) => {
+            if (state.currentUser.role !== 'admin') return;
+            const slotEl = e.target.closest('.time-slot');
+            if (!slotEl) return;
 
-            const startTime = blockModal.form.dataset.startTime;
-            const endTime = blockModal.endTime.value;
-            if (endTime <= startTime) {
-                alert("L'orario di fine deve essere successivo a quello di inizio.");
-                return;
+            const time = slotEl.dataset.time;
+            const status = slotEl.classList.contains('free') ? 'free' : (slotEl.classList.contains('booked') ? 'booked' : 'blocked');
+            const dateStr = formatDate(state.selectedDate);
+
+            if (status === 'free') {
+                adminBookModal.info.textContent = `Giorno: ${state.selectedDate.toLocaleDateString('it-IT')} | Ora inizio: ${time} | Sede: ${state.currentLocation}`;
+                adminBookModal.form.dataset.time = time;
+                adminBookModal.overlay.style.display = 'flex';
+                showLoading(true);
+                const { data: students } = await supabase.from('users').select('code, name').neq('role', 'admin').order('name');
+                showLoading(false);
+                adminBookModal.studentSelect.innerHTML = '<option value="">-- Seleziona Allievo --</option>' + (students?.map(s => `<option value="${s.code}">${s.name} (${s.code})</option>`).join('') || '');
+            } else if (status === 'booked') {
+                const booking = JSON.parse(slotEl.dataset.booking);
+                let msg = `Lezione di ${booking.users?.name || 'Allievo'} dalle ${formatTime(booking.start_time)} alle ${formatTime(booking.end_time)}.\n\n`;
+                msg += `Scegli un'azione:\n`;
+                msg += `[OK] -> Segna come ASSENZA (mantiene lo slot occupato e scala credito)\n`;
+                msg += `[Annulla] -> CANCELLA totalmente la lezione`;
+                
+                if (confirm(msg)) {
+                    showLoading(true);
+                    await supabase.from('bookings').update({ is_absent: true }).eq('id', booking.id);
+                    showLoading(false);
+                    renderTimeSlots(dateStr);
+                } else {
+                    if (confirm("Sei sicuro di voler eliminare definitivamente questa lezione?")) {
+                        showLoading(true);
+                        await supabase.from('bookings').delete().eq('id', booking.id);
+                        showLoading(false);
+                        renderTimeSlots(dateStr);
+                    }
+                }
+            } else if (status === 'blocked') {
+                blockModal.info.textContent = `Sblocca orario a partire dalle ore ${time} del giorno ${state.selectedDate.toLocaleDateString('it-IT')}`;
+                blockModal.form.dataset.action = 'unblock';
+                blockModal.form.dataset.time = time;
+                blockModal.endTime.value = '';
+                blockModal.unblockBtn.style.display = 'block';
+                blockModal.blockBtn.style.display = 'none';
+                blockModal.overlay.style.display = 'flex';
             }
-
-            const recurrence = document.querySelector('input[name="recurrence"]:checked').value;
-            const startDate = new Date(state.selectedDate);
-            let endDate = null;
-
-            if (recurrence === 'once') {
-                endDate = new Date(startDate);
-            } else if (recurrence === 'weekly') {
-                const weeks = parseInt(document.getElementById('recurrence-weeks').value);
-                if (isNaN(weeks) || weeks < 1) return alert("Numero di settimane non valido.");
-                endDate = new Date(startDate);
-                endDate.setDate(startDate.getDate() + (weeks * 7) - 1);
-            }
-
-            const newRule = {
-                location: state.currentLocation,
-                rule_type: ruleType,
-                day_of_week: startDate.getDay(),
-                start_time: startTime,
-                end_time: endTime,
-                start_date: formatDate(startDate),
-                end_date: endDate ? formatDate(endDate) : null
-            };
-
-            showLoading(true);
-            const { error } = await supabase.from('availability_rules').insert(newRule);
-            showLoading(false);
-
-            if(error) {
-                alert("Errore nel salvataggio della regola.");
-                console.error(error);
-            } else {
-                blockModal.overlay.style.display = 'none';
-                await renderTimeSlots(formatDate(state.selectedDate));
-            }
-        };
-        
-        const openAdminBookModal = async (startTime) => {
-            adminBookModal.form.reset();
-            adminBookModal.recurringOptions.style.display = 'none';
-            adminBookModal.form.dataset.startTime = startTime;
-            adminBookModal.info.textContent = `Giorno: ${state.selectedDate.toLocaleDateString('it-IT', {weekday: 'long'})} | Inizio ore: ${startTime}`;
-            adminBookModal.studentSelect.innerHTML = '<option value="">Caricamento...</option>';
-            
-            showLoading(true);
-            const { data: students, error } = await supabase
-                .from('users')
-                .select('name, code')
-                .eq('role', 'student')
-                .order('name');
-            showLoading(false);
-
-            if (error) {
-                console.error("Errore caricamento allievi:", error);
-                adminBookModal.studentSelect.innerHTML = '<option value="">Errore</option>';
-                return;
-            }
-
-            adminBookModal.studentSelect.innerHTML = students.map(s => `<option value="${s.code}">${s.name}</option>`).join('');
-            adminBookModal.overlay.style.display = 'flex';
         };
 
         const handleAdminSaveBooking = async (e) => {
             e.preventDefault();
-            
-            if (adminBookModal.recurringCheckbox.checked) {
-                await handleRecurringBooking();
-                return;
-            }
-
             const studentCode = adminBookModal.studentSelect.value;
             const duration = parseInt(adminBookModal.durationSelect.value);
-            const startTime = adminBookModal.form.dataset.startTime;
+            const startTimeStr = adminBookModal.form.dataset.time;
+            if (!studentCode || !startTimeStr) return;
+
             const dateStr = formatDate(state.selectedDate);
-
-            if (!studentCode) {
-                alert("Seleziona un allievo.");
-                return;
-            }
-
-            const startDateTime = new Date(`${dateStr}T${startTime}`);
-            const endDateTime = new Date(startDateTime.getTime() + duration * 60000);
-            const endTime = endDateTime.toTimeString().substring(0, 5);
+            const start = new Date(`${dateStr}T${startTimeStr}`);
+            const end = new Date(start.getTime() + duration * 60000);
+            const endTimeStr = end.toTimeString().substring(0, 5);
 
             showLoading(true);
-
-            const available = await isSlotAvailable(state.selectedDate, startTime, endTime, state.currentLocation);
-
-            if (!available) {
-                showLoading(false);
-                alert("Errore: l'intervallo di tempo selezionato non è più disponibile. La visualizzazione verrà aggiornata.");
-                await renderTimeSlots(dateStr, false);
-                return;
-            }
-
-            const { error: insertError } = await supabase.from('bookings').insert({
-                user_code: studentCode,
-                location: state.currentLocation,
-                date: dateStr,
-                start_time: startTime,
-                end_time: endDateTime.toTimeString().substring(0, 8)
-            });
-            showLoading(false);
-
-            if (insertError) {
-                alert("Errore durante la creazione della prenotazione.");
-                console.error(insertError);
-            } else {
-                alert("Prenotazione singola assegnata con successo!");
-                adminBookModal.overlay.style.display = 'none';
-                await renderTimeSlots(dateStr, false);
-            }
-        };
-
-        const isSlotAvailable = async (checkDate, startTime, endTime, location) => {
-            const dateStr = formatDate(checkDate);
-            if (!dateStr) return false;
-            const dayOfWeek = checkDate.getDay();
-            const locationConfig = state.scheduleConfig[location];
-
-            const [bookingsRes, rulesRes] = await Promise.all([
-                supabase.from('bookings').select('id').eq('date', dateStr).eq('location', location).lt('start_time', endTime).gt('end_time', startTime),
-                supabase.from('availability_rules').select('*').eq('location', location).eq('day_of_week', dayOfWeek).lte('start_date', dateStr)
-            ]);
-            
-            if (bookingsRes.error || rulesRes.error) {
-                console.error("Errore nel controllo disponibilità:", bookingsRes.error, rulesRes.error);
-                return false; 
-            }
-            if (bookingsRes.data.length > 0) return false;
-
-            const tempSlotsMap = new Map();
-            const startHour = parseInt(locationConfig.start_time.split(':')[0]);
-            const endHour = parseInt(locationConfig.end_time.split(':')[0]);
-            for (let h = startHour; h < endHour; h++) {
-                for (let m = 0; m < 60; m += 15) {
-                    const time = `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`;
-                    tempSlotsMap.set(time, { status: 'free' });
-                }
-            }
-
-            const applyTempRule = (ruleType, rStartTime, rEndTime) => {
-                for (const [time, slot] of tempSlotsMap.entries()) {
-                    if (time >= rStartTime && time < rEndTime) {
-                        slot.status = (ruleType === 'BLOCK') ? 'blocked' : 'free';
-                    }
-                }
-            };
-            
-            const allRules = rulesRes.data.filter(rule => !rule.end_date || new Date(rule.end_date) >= checkDate);
-            const recurringRules = allRules.filter(r => r.start_date !== r.end_date || r.start_date !== dateStr);
-            const oneOffRules = allRules.filter(r => r.start_date === r.end_date && r.start_date === dateStr);
-            
-            recurringRules.forEach(r => applyTempRule(r.rule_type, formatTime(r.start_time), formatTime(r.end_time)));
-            oneOffRules.forEach(r => applyTempRule(r.rule_type, formatTime(r.start_time), formatTime(r.end_time)));
-
-            let timespanIsFree = true;
-            for (const [time, slot] of tempSlotsMap.entries()) {
-                if (time >= startTime && time < endTime) {
-                    if (slot.status !== 'free') {
-                        timespanIsFree = false;
-                        break;
-                    }
-                }
-            }
-            return timespanIsFree;
-        };
-
-        const handleRecurringBooking = async () => {
-            const studentCode = adminBookModal.studentSelect.value;
-            const duration = parseInt(adminBookModal.durationSelect.value);
-            const startTime = adminBookModal.form.dataset.startTime;
-            const totalLessonsToBook = parseInt(adminBookModal.lessonsCountInput.value);
-
-            if (!studentCode || !totalLessonsToBook || totalLessonsToBook < 1) {
-                alert("Seleziona un allievo e inserisci un numero di lezioni valido.");
-                return;
-            }
-            
-            if (!confirm(`Stai per prenotare ${totalLessonsToBook} lezioni per l'allievo selezionato, ogni settimana a partire dal ${state.selectedDate.toLocaleDateString('it-IT')}. Le settimane non disponibili verranno saltate. Confermi?`)) {
-                return;
-            }
-
-            showLoading(true);
-
-            let lessonsBookedCount = 0;
-            let currentCheckDate = new Date(state.selectedDate);
-            const bookingsToInsert = [];
-            const skippedDates = [];
-            let iterations = 0;
-            const maxIterations = 52;
-
-            const startDateTime = new Date(`${formatDate(currentCheckDate)}T${startTime}`);
-            const endDateTime = new Date(startDateTime.getTime() + duration * 60000);
-            const endTime = endDateTime.toTimeString().substring(0, 5);
-
-            while (lessonsBookedCount < totalLessonsToBook && iterations < maxIterations) {
-                const available = await isSlotAvailable(currentCheckDate, startTime, endTime, state.currentLocation);
+            if (adminBookModal.recurringCheckbox.checked) {
+                const count = parseInt(adminBookModal.lessonsCountInput.value) || 1;
+                const bookingsToInsert = [];
+                let currentLoopDate = new Date(start);
                 
-                if (available) {
+                for(let i=0; i<count; i++) {
+                    const loopDateStr = formatDate(currentLoopDate);
+                    const loopStartStr = currentLoopDate.toTimeString().substring(0,5);
+                    const loopEnd = new Date(currentLoopDate.getTime() + duration * 60000);
+                    const loopEndStr = loopEnd.toTimeString().substring(0,5);
+
                     bookingsToInsert.push({
                         user_code: studentCode,
+                        date: loopDateStr,
+                        start_time: loopStartStr,
+                        end_time: loopEndStr,
                         location: state.currentLocation,
-                        date: formatDate(currentCheckDate),
-                        start_time: startTime,
-                        end_time: endDateTime.toTimeString().substring(0, 8)
+                        is_absent: false
                     });
-                    lessonsBookedCount++;
-                } else {
-                    skippedDates.push(currentCheckDate.toLocaleDateString('it-IT'));
+                    currentLoopDate.setDate(currentLoopDate.getDate() + 7);
                 }
-                
-                currentCheckDate.setDate(currentCheckDate.getDate() + 7);
-                iterations++;
+                await supabase.from('bookings').insert(bookingsToInsert);
+            } else {
+                await supabase.from('bookings').insert({
+                    user_code: studentCode,
+                    date: dateStr,
+                    start_time: startTimeStr,
+                    end_time: endTimeStr,
+                    location: state.currentLocation,
+                    is_absent: false
+                });
             }
-
-            if (bookingsToInsert.length > 0) {
-                const { error } = await supabase.from('bookings').insert(bookingsToInsert);
-                if (error) {
-                    showLoading(false);
-                    alert("Si è verificato un errore durante l'inserimento delle lezioni. Alcune potrebbero non essere state salvate.");
-                    console.error(error);
-                    return;
-                }
-            }
-
             showLoading(false);
-            
-            let summaryMessage = `Operazione completata!\n\nLezioni prenotate con successo: ${lessonsBookedCount} / ${totalLessonsToBook}.\n`;
-            if (skippedDates.length > 0) {
-                summaryMessage += `\nDate saltate per indisponibilità:\n- ${skippedDates.join('\n- ')}`;
-            }
-            if (iterations >= maxIterations && lessonsBookedCount < totalLessonsToBook) {
-                summaryMessage += `\n\nAttenzione: La ricerca si è interrotta dopo aver controllato 52 settimane senza trovare tutti gli slot necessari.`;
-            }
-
-            alert(summaryMessage);
             adminBookModal.overlay.style.display = 'none';
-            await renderTimeSlots(formatDate(state.selectedDate));
+            adminBookModal.form.reset();
+            adminBookModal.recurringOptions.style.display = 'none';
+            renderTimeSlots(dateStr);
         };
 
+        const handleSaveBlockRule = async (e) => {
+            e.preventDefault();
+            const action = blockModal.form.dataset.action;
+            const startTimeStr = blockModal.form.dataset.time;
+            const endTimeStr = blockModal.endTime.value;
+            if (!startTimeStr || !endTimeStr) return;
 
-        const studentListAndSettingsFunctions = () => {
-             const renderStudentList = async () => {
-                const listDiv = document.getElementById('student-list');
-                listDiv.innerHTML = 'Caricamento...'; 
-                showLoading(true);
+            const dateStr = formatDate(state.selectedDate);
+            const ruleType = (action === 'block') ? 'BLOCK' : 'FREE';
+            const recurrence = blockModal.form.querySelector('input[name="recurrence"]:checked').value;
 
-                const [usersRes, bookingsRes] = await Promise.all([
-                    supabase.from('users').select('*').eq('role', 'student').order('name'),
-                    supabase.from('bookings').select('*').order('date', { ascending: false }) 
-                ]);
+            showLoading(true);
+            if (recurrence === 'once') {
+                await supabase.from('availability_rules').insert({
+                    location: state.currentLocation,
+                    day_of_week: state.selectedDate.getDay(),
+                    start_time: startTimeStr,
+                    end_time: endTimeStr,
+                    rule_type: ruleType,
+                    start_date: dateStr,
+                    end_date: dateStr
+                });
+            } else if (recurrence === 'weekly') {
+                const weeks = parseInt(document.getElementById('recurrence-weeks').value) || 4;
+                const endDate = new Date(state.selectedDate);
+                endDate.setDate(endDate.getDate() + (weeks * 7));
+                await supabase.from('availability_rules').insert({
+                    location: state.currentLocation,
+                    day_of_week: state.selectedDate.getDay(),
+                    start_time: startTimeStr,
+                    end_time: endTimeStr,
+                    rule_type: ruleType,
+                    start_date: dateStr,
+                    end_date: formatDate(endDate)
+                });
+            } else if (recurrence === 'forever') {
+                await supabase.from('availability_rules').insert({
+                    location: state.currentLocation,
+                    day_of_week: state.selectedDate.getDay(),
+                    start_time: startTimeStr,
+                    end_time: endTimeStr,
+                    rule_type: ruleType,
+                    start_date: dateStr,
+                    end_date: null
+                });
+            }
+            showLoading(false);
+            blockModal.overlay.style.display = 'none';
+            renderTimeSlots(dateStr);
+        };
+
+        const handleRequestChangeClick = async (e) => {
+            const btn = e.target.closest('.btn-request-change');
+            if (!btn) return;
+            const bookingId = btn.dataset.bookingId;
+            const reason = prompt("Inserisci il motivo della richiesta di cambio/cancellazione:");
+            if (reason === null) return;
+            if (!reason.trim()) return alert("Devi inserire una motivazione valida.");
+
+            showLoading(true);
+            const { data: booking } = await supabase.from('bookings').select('*').eq('id', bookingId).single();
+            if (booking) {
+                await supabase.from('notifications').insert({
+                    student_code: state.currentUser.code,
+                    booking_id: bookingId,
+                    type: 'change_request',
+                    message: `L'allievo ${state.currentUser.name} richiede lo spostamento della lezione del ${new Date(booking.date).toLocaleDateString('it-IT')} ore ${formatTime(booking.start_time)}. Motivazione: ${reason}`,
+                    status: 'pending'
+                });
+                alert("Richiesta inviata correttamente all'amministratore.");
+            }
+            showLoading(false);
+        };
+
+        const renderStudentList = async () => {
+            const listDiv = document.getElementById('student-list');
+            listDiv.innerHTML = 'Caricamento...';
+            showLoading(true);
+            const [usersRes, bookingsRes] = await Promise.all([
+                supabase.from('users').select('*').neq('role', 'admin').order('name'),
+                supabase.from('bookings').select('*')
+            ]);
+            showLoading(false);
+            if (usersRes.error) return alert("Errore caricamento allievi");
+
+            const todayStr = formatDate(new Date());
+            const students = usersRes.data || [];
+            const allBookings = bookingsRes.data || [];
+
+            listDiv.innerHTML = students.map(student => {
+                const sBookings = allBookings.filter(b => b.user_code === student.code);
+                const futureBookings = sBookings.filter(b => b.date >= todayStr).sort((a,b)=>a.date.localeCompare(b.date));
+                const pastBookings = sBookings.filter(b => b.date < todayStr);
                 
-                showLoading(false);
-                if (usersRes.error || bookingsRes.error) {
-                    return console.error("Errore caricamento allievi o lezioni:", usersRes.error, bookingsRes.error);
-                }
+                const absentsCount = pastBookings.filter(b => b.is_absent).length;
+                const completedCount = pastBookings.length; 
 
-                const users = usersRes.data;
-                const allBookings = bookingsRes.data;
-                
-                const bookingsByUser = allBookings.reduce((acc, booking) => {
-                    if (!acc[booking.user_code]) acc[booking.user_code] = [];
-                    acc[booking.user_code].push(booking);
-                    return acc;
-                }, {});
-
-                const todayStr = formatDate(new Date());
-                const lessonsCountMap = new Map();
-                for (const userCode in bookingsByUser) {
-                    lessonsCountMap.set(userCode, bookingsByUser[userCode].filter(b => b.date < todayStr && !b.is_absent).length);
-                }
-                
-                listDiv.innerHTML = users.map(student => {
-                    const lessonsDone = lessonsCountMap.get(student.code) || 0;
-                    
-                    const studentBookings = bookingsByUser[student.code] || [];
-                    const today = new Date();
-                    today.setHours(0,0,0,0);
-
-                    const futureBookings = studentBookings
-                        .filter(b => new Date(b.date + 'T00:00:00') >= today)
-                        .sort((a,b) => new Date(a.date) - new Date(b.date));
-                    
-                    const pastBookings = studentBookings
-                        .filter(b => new Date(b.date + 'T00:00:00') < today);
-                    
-                    const renderBookingItem = (b, isPast = false) => {
-                        const bookingDate = new Date(b.date + 'T00:00:00');
-                        let absenceButton = '';
-                        if (isPast) {
-                            absenceButton = `<button 
-                                                class="btn ${b.is_absent ? 'btn-info' : 'btn-warning'} btn-sm btn-mark-absence" 
-                                                data-booking-id="${b.id}" 
-                                                data-is-absent="${b.is_absent || false}" 
-                                                style="margin-left: 10px; padding: 0.2rem 0.4rem; font-size: 0.7rem; flex-shrink: 0;">
-                                                ${b.is_absent ? 'Annulla Assenza' : 'Segna Assenza'}
-                                             </button>`;
-                        }
-
-                        return `<div class="appointment-item" style="display: flex; justify-content: space-between; align-items: center; background-color: ${b.is_absent ? '#ffebee' : '#fff'};">
-                                    <div style="flex-grow: 1;">
-                                        <strong>${bookingDate.toLocaleDateString('it-IT', {weekday: 'short', day: '2-digit', month: 'short'})}</strong> - 
-                                        ${formatTime(b.start_time)} / ${formatTime(b.end_time)} 
-                                        <small>(${b.location})</small>
-                                        ${b.is_absent ? ' <strong style="color:var(--danger-color); font-size: 0.8rem;">(Assenza)</strong>' : ''}
-                                    </div>
-                                    ${absenceButton}
-                                </div>`;
-                    };
-                    
-                    let appointmentsHtml = '<h5>Appuntamenti Futuri</h5>';
-                    if (futureBookings.length > 0) {
-                        appointmentsHtml += futureBookings.map(b => renderBookingItem(b, false)).join('');
-                    } else {
-                        appointmentsHtml += '<p style="font-size: 0.9rem; text-align: center; color: #666;">Nessun appuntamento futuro.</p>';
-                    }
-
-                    appointmentsHtml += '<h5 style="margin-top: 1.5rem;">Storico Lezioni</h5>';
-                    if (pastBookings.length > 0) {
-                        appointmentsHtml += pastBookings.map(b => renderBookingItem(b, true)).join('');
-                    } else {
-                        appointmentsHtml += '<p style="font-size: 0.9rem; text-align: center; color: #666;">Nessuno storico disponibile.</p>';
-                    }
-
-                    const adminFieldsHtml = `
-                    <div class="admin-student-fields" style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1rem; background-color: #f8f9fa; padding: 1rem; border-radius: 6px;">
-                        <div class="form-group" style="margin-bottom: 0; display: flex; align-items: center; gap: 0.5rem;">
-                            <input type="checkbox" id="reg-${student.id}" data-id="${student.id}" class="admin-reg-check" ${student.is_regular ? 'checked' : ''} style="width: auto; height: 1.5rem; flex-shrink: 0;">
-                            <label for="reg-${student.id}" style="margin-bottom: 0; font-weight: bold;">Reg.</label>
-                        </div>
-                        <div class="form-group" style="margin-bottom: 0;">
-                            <label for="credit-${student.id}" style="font-weight: bold;">Credit</label>
-                            <input type="text" id="credit-${student.id}" data-id="${student.id}" class="admin-credit-input" value="${student.credit_status || ''}" placeholder="Es. 10" style="padding: 0.5rem;">
+                return `
+                <div class="student-list-item" data-code="${student.code}">
+                    <div class="student-header">
+                        <span class="student-info">${student.name} <small style="color:#666;">(${student.code})</small></span>
+                        <div class="student-actions">
+                            <button class="btn btn-secondary btn-sm btn-edit-student">Modifica</button>
+                            <button class="btn btn-info btn-sm btn-toggle-details">Dettagli</button>
+                            <button class="btn btn-danger btn-sm btn-delete-student">Elimina</button>
                         </div>
                     </div>
-                    `;
-
-                    return `
-                    <div class="student-list-item">
-                        <div class="student-header">
-                            <div class="student-info">
-                                ${student.name}<br><small style="color: #6c757d;">Codice: ${student.code}</small>
-                            </div>
-                            <div class="student-actions">
-                                <button class="btn btn-secondary btn-sm btn-toggle-details" data-target="details-${student.id}">Dettagli</button>
-                            </div>
+                    <div class="student-details">
+                        <div class="student-stats">
+                            <div class="stat-item"><span>${futureBookings.length}</span>In programma</div>
+                            <div class="stat-item"><span>${completedCount}</span>Totale Svolte</div>
+                            <div class="stat-item"><span style="color:var(--danger-color);">${absentsCount}</span>Assenze</div>
                         </div>
-                        <div class="student-details" id="details-${student.id}">
-                            <div class="student-stats">
-                                <div class="stat-item"><span>${lessonsDone}</span>Lezioni Svolte</div>
-                                <div class="stat-item"><span>${student.changes_used ?? 0} / ${student.changes_allowed ?? 0}</span>Cambi Usati</div>
-                            </div>
-                            
-                            ${adminFieldsHtml}
-
-                            <div class="student-appointments">
-                                <h4>Appuntamenti</h4>
-                                ${appointmentsHtml}
-                            </div>
-                            <div class="form-group">
-                                <label for="notes-${student.id}">Note Private</label>
-                                <textarea id="notes-${student.id}">${student.admin_notes || ''}</textarea>
-                            </div>
-                            <div class="student-actions">
-                                 <button class="btn btn-info btn-sm btn-log-change" data-id="${student.id}">+ Registra Cambio</button>
-                                 <button class="btn btn-warning btn-sm btn-reset-changes" data-id="${student.id}" data-name="${student.name}">Azzera Cambi</button>
-                                 <button class="btn btn-primary btn-sm btn-save-notes" data-id="${student.id}">Salva Note</button>
-                                 <button class="btn btn-secondary btn-sm btn-edit-student" data-id="${student.id}" data-name="${student.name}" data-code="${student.code}">Modifica</button>
-                                 <button class="btn btn-danger btn-sm btn-delete-student" data-id="${student.id}" data-name="${student.name}">Elimina</button>
-                            </div>
+                        <div style="font-size:0.85rem; margin-bottom:1rem; padding:0.5rem; background:#f1f3f5; border-radius:4px;">
+                            Registrazione: <strong>${student.is_regular ? 'Attiva' : 'Non Attiva'}</strong> | Credito: <strong>${student.credit_status || 'N/D'}</strong>
                         </div>
-                    </div>`;
-                }).join('');
-            };
-
-            const showUserModal = (isEdit, userData = {}) => {
-                document.getElementById('user-modal-title').textContent = isEdit ? 'Modifica Allievo' : 'Crea Nuovo Allievo';
-                document.getElementById('user-modal-name').value = userData.name || '';
-                document.getElementById('user-modal-code').value = userData.code || '';
-                document.getElementById('user-modal-save').onclick = () => handleSaveUser(userData.id);
-                document.getElementById('user-modal-overlay').style.display = 'flex';
-            };
-            const handleSaveUser = async (userId) => {
-                const name = document.getElementById('user-modal-name').value.trim();
-                const code = document.getElementById('user-modal-code').value.toUpperCase().trim();
-                if (!name || !code) return alert("Nome e Codice non possono essere vuoti.");
-                showLoading(true);
-                const { error } = userId ? await supabase.from('users').update({ name, code }).eq('id', userId) : await supabase.from('users').insert({ name, code, role: 'student' });
-                showLoading(false);
-                if (error) return alert("Errore: il codice potrebbe essere già in uso.");
-                alert(`Allievo "${name}" salvato.`);
-                await renderStudentList();
-                document.getElementById('user-modal-overlay').style.display = 'none';
-            };
-            const deleteUser = async (userId, userName) => {
-                if (!confirm(`Sei sicuro di voler eliminare "${userName}"? Verranno cancellate anche tutte le sue prenotazioni.`)) return;
-                showLoading(true);
-                const { error } = await supabase.from('users').delete().eq('id', userId);
-                showLoading(false);
-                if (error) return alert("Errore durante l'eliminazione.");
-                alert("Allievo eliminato.");
-                await renderStudentList();
-            };
-
-            const renderScheduleSettings = async () => {
-                state.locationsToDelete = [];
-                const contentDiv = document.getElementById('schedule-settings-content');
-                contentDiv.innerHTML = 'Caricamento...';
-                showLoading(true);
-                const { data, error } = await supabase.from('schedule_config').select('*').order('location');
-                showLoading(false);
-                if(error) return console.error("Errore caricamento impostazioni:", error);
-                contentDiv.innerHTML = '';
-                data.forEach(config => addLocationToDOM(config.location, config.work_days, config.start_time, config.end_time));
-            };
-            
-            const addLocationToDOM = (locationName, workDays = [], startTime = '15:00', endTime = '21:00') => {
-                const contentDiv = document.getElementById('schedule-settings-content');
-                const daysOfWeek = ['Domenica', 'Lunedì', 'Martedì', 'Mercoledì', 'Giovedì', 'Venerdì', 'Sabato'];
-                let locationHtml = `<div class="admin-tool-card" data-location-block="${locationName}">
-                    <div style="display:flex; justify-content:space-between; align-items:center;">
-                        <h4 style="margin:0;">${locationName}</h4>
-                        <button class="btn btn-danger btn-sm btn-remove-location" data-location="${locationName}">&times; Rimuovi</button>
+                        <div class="student-appointments">
+                            <h4>Appuntamenti Allievo</h4>
+                            <h5>Futuri (${futureBookings.length})</h5>
+                            ${futureBookings.map(b => `<div class="appointment-item">${new Date(b.date).toLocaleDateString('it-IT')} ore ${formatTime(b.start_time)} - ${formatTime(b.end_time)} (${b.location})</div>`).join('') || '<p style="font-size:0.8rem;color:#999;">Nessuno</p>'}
+                            <h5>Passati (${pastBookings.length})</h5>
+                            ${pastBookings.map(b => `<div class="appointment-item" style="${b.is_absent ? 'border-left:3px solid var(--danger-color); background:#fff5f5;' : ''}">${new Date(b.date).toLocaleDateString('it-IT')} ore ${formatTime(b.start_time)} - ${formatTime(b.end_time)} (${b.location}) ${b.is_absent ? '<strong>(ASSENTE)</strong>' : ''}</div>`).join('') || '<p style="font-size:0.8rem;color:#999;">Nessuno</p>'}
+                        </div>
                     </div>
-                    <div class="days-checkboxes" data-location="${locationName}" style="display:grid; grid-template-columns:repeat(auto-fit, minmax(100px, 1fr)); gap:0.5rem; margin-top:1rem;">`;
-                for (let i = 1; i <= 6; i++) {
-                    const isChecked = workDays.includes(i);
-                    locationHtml += `<div><input type="checkbox" id="${locationName}-${i}" value="${i}" ${isChecked ? 'checked' : ''}><label for="${locationName}-${i}" style="margin-left:0.25rem;">${daysOfWeek[i]}</label></div>`;
-                }
-                locationHtml += `</div>
-                <div class="time-inputs-container">
-                    <div>
-                        <label for="start-time-${locationName}">Orario Inizio</label>
-                        <input type="time" id="start-time-${locationName}" value="${formatTime(startTime)}" step="900">
-                    </div>
-                    <div>
-                        <label for="end-time-${locationName}">Orario Fine</label>
-                        <input type="time" id="end-time-${locationName}" value="${formatTime(endTime)}" step="900">
+                </div>`;
+            }).join('') || '<p style="text-align:center; padding:1rem;">Nessun allievo trovato.</p>';
+        };
+
+        const renderNotifications = async () => {
+            const listDiv = document.getElementById('notifications-list');
+            listDiv.innerHTML = 'Caricamento...';
+            showLoading(true);
+            const { data, error } = await supabase.from('notifications').select('*, bookings(*)').eq('status', 'pending').order('created_at', { ascending: false });
+            showLoading(false);
+            if (error) return alert("Errore notifiche");
+
+            listDiv.innerHTML = data.map(n => `
+                <div class="notification-item" data-id="${n.id}" data-booking-id="${n.booking_id}">
+                    <p style="margin:0; font-weight:500;">${n.message}</p>
+                    <div class="notification-actions">
+                        <button class="btn btn-success btn-sm btn-accept-notification">Accetta e Cancella Lezione</button>
+                        <button class="btn btn-danger btn-sm btn-reject-notification">Rifiuta Richiesta</button>
                     </div>
                 </div>
+            `).join('') || '<p style="text-align:center; padding:1rem;">Nessuna notifica in sospeso.</p>';
+        };
+
+        const renderWeeklySchedule = async () => {
+            const grid = document.getElementById('schedule-grid');
+            grid.innerHTML = 'Caricamento...';
+
+            const startOfWeek = new Date(state.scheduleCurrentDate);
+            const day = startOfWeek.getDay();
+            const diff = startOfWeek.getDate() - day + (day === 0 ? -6 : 1);
+            startOfWeek.setDate(diff);
+            startOfWeek.setHours(0,0,0,0);
+
+            const endOfWeek = new Date(startOfWeek);
+            endOfWeek.setDate(endOfWeek.getDate() + 6);
+            endOfWeek.setHours(23,59,59,999);
+
+            document.getElementById('week-label').textContent = `${startOfWeek.toLocaleDateString('it-IT', {day:'numeric', month:'short'})} - ${endOfWeek.toLocaleDateString('it-IT', {day:'numeric', month:'short', year:'numeric'})}`;
+
+            showLoading(true);
+            const { data: bookings, error } = await supabase.from('bookings').select('*, users(name)').gte('date', formatDate(startOfWeek)).lte('date', formatDate(endOfWeek));
+            showLoading(false);
+            if (error) return alert("Errore orari");
+
+            let html = '';
+            for(let i=0; i<7; i++) {
+                const currentDay = new Date(startOfWeek);
+                currentDay.setDate(currentDay.getDate() + i);
+                const dayStr = formatDate(currentDay);
+                const dayBookings = bookings.filter(b => b.date === dayStr).sort((a,b)=>a.start_time.localeCompare(b.start_time));
+
+                html += `
+                <div class="schedule-day-column">
+                    <h5>${currentDay.toLocaleDateString('it-IT', {weekday:'long', day:'numeric', month:'short'})}</h5>
+                    ${dayBookings.map(b => `
+                        <div class="schedule-booking" style="${b.is_absent ? 'border-left-color: var(--danger-color); background-color: #fff0f0;' : ''}">
+                            <strong>${formatTime(b.start_time)} - ${formatTime(b.end_time)}</strong> (${b.location})<br>
+                            ${b.users?.name || 'Allievo'} ${b.is_absent ? '<b style="color:var(--danger-color);">(ASSENTE)</b>' : ''}
+                        </div>
+                    `).join('') || '<p style="color:#999; font-size:0.8rem; margin:0.5rem 0;">Nessuna lezione</p>'}
                 </div>`;
-                contentDiv.insertAdjacentHTML('beforeend', locationHtml);
-            };
-
-            const saveScheduleSettings = async () => {
-                showLoading(true);
-                const promises = [];
-                if (state.locationsToDelete.length > 0) {
-                    promises.push(supabase.from('schedule_config').delete().in('location', state.locationsToDelete));
-                }
-                const updates = [];
-                document.querySelectorAll('[data-location-block]').forEach(div => {
-                    const location = div.dataset.locationBlock;
-                    if (state.locationsToDelete.includes(location)) return;
-                    const work_days = Array.from(div.querySelectorAll('.days-checkboxes input:checked')).map(box => parseInt(box.value));
-                    const start_time = document.getElementById(`start-time-${location}`).value;
-                    const end_time = document.getElementById(`end-time-${location}`).value;
-                    updates.push({ location, work_days, start_time, end_time });
-                });
-                if (updates.length > 0) {
-                    promises.push(supabase.from('schedule_config').upsert(updates, { onConflict: 'location' }));
-                }
-                const results = await Promise.all(promises);
-                showLoading(false);
-                if (results.some(res => res.error)) { alert("Errore nel salvataggio."); console.error(results.map(r=>r.error)); } 
-                else { alert("Impostazioni salvate."); await loadInitialData(); navigateTo('main-screen'); }
-            };
-
-            const removeLocationFromDOM = (locationToRemove) => {
-                if (confirm(`Sei sicuro di voler rimuovere la sede "${locationToRemove}"? La modifica sarà definitiva solo dopo aver cliccato 'Salva Modifiche'.`)) {
-                    if (!state.locationsToDelete.includes(locationToRemove)) state.locationsToDelete.push(locationToRemove);
-                    document.querySelector(`[data-location-block="${locationToRemove}"]`)?.remove();
-                }
-            };
-
-            document.getElementById('student-list-screen').addEventListener('click', async (e) => {
-                const button = e.target.closest('button');
-                if (!button || button.id.startsWith('back-to-main')) return;
-
-                if (button.id === 'create-student-btn') showUserModal(false);
-                if (button.classList.contains('btn-edit-student')) showUserModal(true, button.dataset);
-                if (button.classList.contains('btn-delete-student')) deleteUser(button.dataset.id, button.dataset.name);
-
-                if (button.classList.contains('btn-mark-absence')) {
-                    const bookingId = button.dataset.bookingId;
-                    const isCurrentlyAbsent = button.dataset.isAbsent === 'true';
-                    const newAbsenceState = !isCurrentlyAbsent;
-                    const actionText = newAbsenceState ? 'segnare questa lezione come assenza' : 'annullare l\'assenza per questa lezione';
-
-                    if (confirm(`Sei sicuro di voler ${actionText}?`)) {
-                        showLoading(true);
-                        const { error } = await supabase.from('bookings').update({ is_absent: newAbsenceState }).eq('id', bookingId);
-                        showLoading(false);
-                        if (error) {
-                            alert("Errore durante l'aggiornamento.");
-                            console.error(error);
-                        } else {
-                            alert('Stato assenza aggiornato.');
-                            await renderStudentList(); 
-                        }
-                    }
-                }
-                
-                if (button.classList.contains('btn-toggle-details')) {
-                    const targetId = button.dataset.target;
-                    const detailsDiv = document.getElementById(targetId);
-                    if (detailsDiv) {
-                        detailsDiv.style.display = detailsDiv.style.display === 'block' ? 'none' : 'block';
-                    }
-                }
-                if (button.classList.contains('btn-save-notes')) {
-                    const studentId = button.dataset.id;
-                    const notes = document.getElementById(`notes-${studentId}`).value;
-                    showLoading(true);
-                    const { error } = await supabase.from('users').update({ admin_notes: notes }).eq('id', studentId);
-                    showLoading(false);
-                    if (error) alert('Errore nel salvataggio delle note.');
-                    else alert('Note salvate con successo.');
-                }
-                if (button.classList.contains('btn-reset-changes')) {
-                    const studentId = button.dataset.id;
-                    const studentName = button.dataset.name;
-                    if (confirm(`Sei sicuro di voler azzerare i cambi utilizzati per ${studentName}?`)) {
-                        showLoading(true);
-                        const { error } = await supabase.from('users').update({ changes_used: 0 }).eq('id', studentId);
-                        showLoading(false);
-                        if (error) {
-                            alert('Errore durante l\'azzeramento dei cambi.');
-                            console.error(error);
-                        } else {
-                            alert(`Cambi per ${studentName} azzerati con successo.`);
-                            await renderStudentList();
-                        }
-                    }
-                }
-                if (button.classList.contains('btn-log-change')) {
-                    const studentId = button.dataset.id;
-                    const note = prompt("Vuoi registrare un cambio manuale. Questo incrementerà il contatore 'cambi usati' e aggiungerà una nota allo storico.\n\nInserisci una nota per questo cambio (opzionale):");
-                    
-                    if (note !== null) { 
-                        showLoading(true);
-                        const { data: student, error: fetchError } = await supabase.from('users').select('admin_notes, changes_used').eq('id', studentId).single();
-
-                        if (fetchError || !student) {
-                            showLoading(false);
-                            alert('Impossibile recuperare i dati dello studente per registrare il cambio.');
-                            console.error(fetchError);
-                            return;
-                        }
-
-                        const currentDate = new Date().toLocaleDateString('it-IT', { day: '2-digit', month: '2-digit', year: 'numeric' });
-                        let logEntry = `\n[${currentDate}] - Cambio/Recupero registrato manualmente.`;
-                        if (note.trim()) {
-                            logEntry += ` Nota: ${note.trim()}`;
-                        }
-
-                        const newNotes = (student.admin_notes || '') + logEntry;
-                        const newChangesUsed = (student.changes_used || 0) + 1;
-
-                        const { error: updateError } = await supabase.from('users').update({ admin_notes: newNotes, changes_used: newChangesUsed }).eq('id', studentId);
-                        showLoading(false);
-                        if (updateError) {
-                            alert('Errore durante la registrazione del cambio.');
-                            console.error(updateError);
-                        } else {
-                            alert('Cambio registrato con successo.');
-                            await renderStudentList();
-                        }
-                    }
-                }
-            });
-
-            document.getElementById('student-list-screen').addEventListener('change', async (e) => {
-                if (e.target.classList.contains('admin-reg-check')) {
-                    const studentId = e.target.dataset.id;
-                    const is_regular = e.target.checked;
-                    showLoading(true);
-                    const { error } = await supabase.from('users').update({ is_regular }).eq('id', studentId);
-                    showLoading(false);
-                    if (error) {
-                        alert('Errore nell\'aggiornamento dello stato "Reg.".');
-                        console.error(error);
-                        e.target.checked = !is_regular;
-                    } else {
-                        console.log('Stato "Reg." aggiornato.');
-                    }
-                }
-            });
-
-            document.getElementById('student-list-screen').addEventListener('blur', async (e) => {
-                if (e.target.classList.contains('admin-credit-input')) {
-                    const studentId = e.target.dataset.id;
-                    const credit_status = e.target.value.trim();
-                    
-                    if (e.target.dataset.lastValue === credit_status) return;
-
-                    showLoading(true);
-                    const { error } = await supabase.from('users').update({ credit_status }).eq('id', studentId);
-                    showLoading(false);
-                    if (error) {
-                        alert('Errore nell\'aggiornamento del "Credit".');
-                        console.error(error);
-                    } else {
-                        console.log('Stato "Credit" aggiornato.');
-                        e.target.dataset.lastValue = credit_status;
-                    }
-                }
-            }, true);
-
-             document.getElementById('schedule-settings-screen').addEventListener('click', (e) => {
-                const button = e.target.closest('button');
-                if (!button || button.id.startsWith('back-to-main')) return;
-                if (button.id === 'add-location-btn') {
-                    const input = document.getElementById('new-location-name'); const newLocationName = input.value.trim();
-                    if (newLocationName && !document.querySelector(`[data-location-block="${newLocationName}"]`)) {
-                        addLocationToDOM(newLocationName); input.value = '';
-                    } else { alert('Inserisci un nome valido o un nome non già presente.'); }
-                }
-                if (button.id === 'save-schedule-settings-btn') saveScheduleSettings();
-                if (button.classList.contains('btn-remove-location')) removeLocationFromDOM(button.dataset.location);
-            });
-            return { renderStudentList, renderScheduleSettings };
-        };
-        const { renderStudentList, renderScheduleSettings } = studentListAndSettingsFunctions();
-
-        const remainingFunctions = () => {
-            const renderNotifications = async () => {
-                const listDiv = document.getElementById('notifications-list');
-                showLoading(true);
-                const { data: notifications, error: notifError } = await supabase.from('notifications').select('*').eq('status', 'pending');
-                if (notifError || !notifications || notifications.length === 0) {
-                    listDiv.innerHTML = '<p>Nessuna nuova notifica.</p>';
-                    showLoading(false);
-                    return;
-                }
-                const bookingIds = notifications.map(n => n.booking_id).filter(id => id);
-                let bookingsMap = new Map();
-                if(bookingIds.length > 0) {
-                    const { data: bookings, error: bookError } = await supabase.from('bookings').select('*').in('id', bookingIds);
-                    if (bookError) console.error(bookError);
-                    else bookingsMap = new Map(bookings.map(b => [b.id, b]));
-                }
-                showLoading(false);
-                listDiv.innerHTML = notifications.map(n => {
-                    const booking = n.booking_id ? bookingsMap.get(n.booking_id) : null;
-                    let bookingDetails = '<i>Info sulla lezione originale non disponibili.</i>';
-                    if (booking) {
-                        bookingDetails = `Sede: ${booking.location}<br>Giorno: ${new Date(booking.date + 'T00:00:00').toLocaleDateString('it-IT')}<br>Orario: ${formatTime(booking.start_time)} - ${formatTime(booking.end_time)}`;
-                    }
-                    return `<div class="notification-item" data-notification-id="${n.id}" data-booking-id="${n.booking_id || ''}"><p>Da: <strong>${n.student_name}</strong></p><p>Richiesta: <em>"${n.message}"</em></p><div class="notification-details">${bookingDetails}</div><div class="notification-actions"><button class="btn btn-primary btn-sm btn-reply">Rispondi</button><button class="btn btn-secondary btn-sm btn-mark-read">Segna come Letta</button>${booking ? `<button class="btn btn-danger btn-sm btn-cancel-booking">Cancella Lezione</button>` : ''}</div></div>`;
-                }).join('');
-            };
-            
-            const renderSchedule = async () => {
-                const grid = document.getElementById('schedule-grid'), label = document.getElementById('week-label');
-                grid.innerHTML = 'Caricamento...';
-                const current = new Date(state.scheduleCurrentDate);
-                const dayOfWeek = current.getDay();
-                const diff = current.getDate() - dayOfWeek + (dayOfWeek === 0 ? -6 : 1);
-                const weekStart = new Date(current.setDate(diff));
-                const weekEnd = new Date(weekStart); weekEnd.setDate(weekStart.getDate() + 5);
-                label.textContent = `${weekStart.toLocaleDateString('it-IT', {day:'2-digit', month:'2-digit'})} - ${weekEnd.toLocaleDateString('it-IT', {day:'2-digit', month:'2-digit', year:'numeric'})}`;
-                showLoading(true);
-                const { data: bookings, error } = await supabase.from('bookings').select('*, users(name)').gte('date', formatDate(weekStart)).lte('date', formatDate(weekEnd)).order('date').order('start_time');
-                showLoading(false);
-                if(error) return console.error(error);
-                const bookingsByDay = {};
-                for(let i=0; i<6; i++) { const d = new Date(weekStart); d.setDate(weekStart.getDate() + i); bookingsByDay[formatDate(d)] = []; }
-                bookings.forEach(b => { if(bookingsByDay[b.date]) bookingsByDay[b.date].push(b); });
-                const dayNames = ['Lunedì', 'Martedì', 'Mercoledì', 'Giovedì', 'Venerdì', 'Sabato'];
-                grid.innerHTML = dayNames.map((name, i) => {
-                    const dayDate = new Date(weekStart); dayDate.setDate(weekStart.getDate() + i);
-                    const dayBookings = bookingsByDay[formatDate(dayDate)];
-                    let bookingsHtml = '<p>Nessuna lezione.</p>';
-                    if(dayBookings.length > 0) {
-                        bookingsHtml = dayBookings.map(b => `<div class="schedule-booking"><strong>${formatTime(b.start_time)}</strong> - ${b.users.name} <small>(${b.location})</small></div>`).join('');
-                    }
-                    return `<div class="schedule-day-column"><h5>${name} ${dayDate.getDate()}</h5>${bookingsHtml}</div>`;
-                }).join('');
-            };
-
-            const renderAdminTools = () => {
-                const select = document.getElementById('admin-tools-location');
-                select.innerHTML = Object.keys(state.scheduleConfig).map(loc => `<option value="${loc}">${loc}</option>`).join('');
-            };
-
-            const internalBlockDay = async (dateStr, location, unblock = false) => {
-                const rule_type = unblock ? 'UNBLOCK' : 'BLOCK';
-                const locationConfig = state.scheduleConfig[location];
-                const newRule = {
-                    location, rule_type, day_of_week: new Date(dateStr + 'T00:00:00').getDay(),
-                    start_time: locationConfig.start_time, end_time: locationConfig.end_time,
-                    start_date: dateStr, end_date: dateStr
-                };
-                
-                if (!unblock) {
-                    const { data: bookings } = await supabase.from('bookings').select('*, users(name, code)').eq('date', dateStr).eq('location', location);
-                    if (bookings && bookings.length > 0) {
-                        const bookingIds = bookings.map(b => b.id);
-                        const notifications = bookings.map(b => ({ student_code: b.users.code, student_name: b.users.name, message: `La tua lezione del ${dateStr} alle ${formatTime(b.start_time)} è stata annullata per indisponibilità. Questa notifica è automatica, contatta l'insegnante per dettagli.`, booking_id: null, status: 'replied', reply_message: `La tua lezione del ${dateStr} è stata annullata per indisponibilità. Contatta l'insegnante per riprogrammare.`}));
-                        await supabase.from('bookings').delete().in('id', bookingIds);
-                        await supabase.from('notifications').insert(notifications);
-                    }
-                }
-                await supabase.from('availability_rules').insert(newRule);
-            };
-            return {renderNotifications, renderSchedule, renderAdminTools, internalBlockDay};
-        };
-        const {renderNotifications, renderSchedule, renderAdminTools, internalBlockDay} = remainingFunctions();
-        
-        mainEl.addEventListener('click', async (e) => {
-            const button = e.target.closest('button');
-            if (!button) return;
-            const id = button.id;
-            
-            if (id === 'login-btn') await login();
-            if (id === 'logout-btn') logout();
-            if (id.startsWith('back-to-main')) navigateTo('main-screen');
-
-            if (state.currentUser?.role === 'admin') {
-                if (id === 'manage-students-btn') { await renderStudentList(); navigateTo('student-list-screen'); }
-                if (id === 'manage-schedule-btn') { await renderScheduleSettings(); navigateTo('schedule-settings-screen'); }
-                if (id === 'view-notifications-btn') { await renderNotifications(); navigateTo('notifications-screen'); }
-                if (id === 'view-schedule-btn') { state.scheduleCurrentDate = new Date(); await renderSchedule(); navigateTo('schedule-screen'); }
-                if (id === 'admin-tools-btn') { renderAdminTools(); navigateTo('admin-tools-screen'); }
             }
-        });
+            grid.innerHTML = html;
+        };
 
-        document.getElementById('student-code').addEventListener('keyup', (e) => { if (e.key === 'Enter') login(); });
+        const renderScheduleSettings = async () => {
+            const container = document.getElementById('schedule-settings-content');
+            container.innerHTML = 'Caricamento...';
+            showLoading(true);
+            const { data, error } = await supabase.from('schedule_config').select('*');
+            showLoading(false);
+            if (error) return alert("Errore caricamento impostazioni");
+
+            state.locationsToDelete = [];
+            let html = '';
+            data.forEach(config => {
+                html += `
+                <div class="admin-tool-card location-config-block" data-location="${config.location}">
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem;">
+                        <h4 style="margin:0;">Sede: ${config.location}</h4>
+                        <button type="button" class="btn btn-danger btn-sm btn-delete-location" style="width:auto; margin:0;">Elimina Sede</button>
+                    </div>
+                    <div class="form-group">
+                        <label>Giorni di apertura:</label>
+                        <div style="display:grid; grid-template-columns: repeat(4, 1fr); gap: 5px; font-size:0.85rem;">
+                            ${['Dom','Lun','Mar','Mer','Gio','Ven','Sab'].map((d, idx) => {
+                                if(idx === 0) return ''; 
+                                const checked = config.work_days?.includes(idx) ? 'checked' : '';
+                                return `<label style="font-weight:normal; display:flex; align-items:center; gap:3px;"><input type="checkbox" value="${idx}" ${checked}> ${d}</label>`;
+                            }).join('')}
+                            ${(() => {
+                                const checkedDom = config.work_days?.includes(0) ? 'checked' : '';
+                                return `<label style="font-weight:normal; display:flex; align-items:center; gap:3px;"><input type="checkbox" value="0" ${checkedDom}> Dom</label>`;
+                            })()}
+                        </div>
+                    </div>
+                    <div class="time-inputs-container">
+                        <div class="form-group"><label>Orario Inizio:</label><input type="time" class="start-time-input" value="${config.start_time || '15:00'}"></div>
+                        <div class="form-group"><label>Orario Fine:</label><input type="time" class="end-time-input" value="${config.end_time || '21:00'}"></div>
+                    </div>
+                </div>`;
+            });
+            container.innerHTML = html || '<p style="text-align:center; color:#666;">Nessuna sede presente.</p>';
+        };
+
+        // --- GESTIONE DEI VARI EVENTI DEL DOM ---
+        document.getElementById('login-btn').addEventListener('click', login);
+        document.getElementById('logout-btn').addEventListener('click', logout);
         
         document.getElementById('location-buttons-container').addEventListener('click', (e) => {
-            const location = e.target.dataset.location;
-            if (location) {
-                state.currentLocation = location;
-                document.getElementById('booking-location-title').textContent = `Sede di ${location}`;
-                state.currentDate = new Date(); state.currentDate.setDate(1);
-                renderCalendar(); 
-                navigateTo('booking-screen');
-                state.calendarPollingInterval = setInterval(() => {
-                    if (state.selectedDate) renderTimeSlots(formatDate(state.selectedDate), true);
-                }, 15000);
+            const btn = e.target.closest('button');
+            if (!btn) return;
+            state.currentLocation = btn.dataset.location;
+            document.getElementById('booking-location-title').textContent = `Sede: ${state.currentLocation}`;
+            renderCalendar();
+            navigateTo('booking-screen');
+        });
+
+        document.getElementById('calendar-grid').addEventListener('click', handleCalendarClick);
+        document.getElementById('slots-content').addEventListener('click', handleTimeSlotClick);
+        document.getElementById('student-bookings-summary').addEventListener('click', handleRequestChangeClick);
+
+        document.getElementById('prev-month-btn').addEventListener('click', () => { state.currentDate.setMonth(state.currentDate.getMonth() - 1); renderCalendar(); });
+        document.getElementById('next-month-btn').addEventListener('click', () => { state.currentDate.setMonth(state.currentDate.getMonth() + 1); renderCalendar(); });
+        document.getElementById('back-to-main-btn').addEventListener('click', () => navigateTo('main-screen'));
+
+        mainEl.addEventListener('click', async (e) => {
+            if (e.target.id === 'manage-students-btn') { await renderStudentList(); navigateTo('student-list-screen'); }
+            if (e.target.id === 'view-schedule-btn') { state.scheduleCurrentDate = new Date(); await renderWeeklySchedule(); navigateTo('schedule-screen'); }
+            if (e.target.id === 'admin-tools-btn') {
+                const select = document.getElementById('admin-tools-location');
+                select.innerHTML = Object.keys(state.scheduleConfig).map(l => `<option value="${l}">${l}</option>`).join('');
+                navigateTo('admin-tools-screen');
             }
+            if (e.target.id === 'manage-schedule-btn') { await renderScheduleSettings(); navigateTo('schedule-settings-screen'); }
+            if (e.target.id === 'view-notifications-btn') { await renderNotifications(); navigateTo('notifications-screen'); }
         });
 
-        document.getElementById('booking-screen').addEventListener('click', async (e) => {
-            const target = e.target;
-            const dateStr = state.selectedDate ? formatDate(state.selectedDate) : null;
-            if (target.id === 'prev-month-btn') { state.currentDate.setMonth(state.currentDate.getMonth() - 1); renderCalendar(); }
-            if (target.id === 'next-month-btn') { state.currentDate.setMonth(state.currentDate.getMonth() + 1); renderCalendar(); }
-            if (target.classList.contains('valid')) await renderTimeSlots(target.dataset.date, false);
-            if (!dateStr || !target.closest('button')) return;
-            const buttonId = target.closest('button').id;
-            if (buttonId === 'block-day-btn') { if (confirm(`Sei sicuro di bloccare l'intera giornata ${dateStr}? Le prenotazioni verranno cancellate e verrà creata una regola solo per oggi.`)) { await internalBlockDay(dateStr, state.currentLocation); await renderTimeSlots(dateStr, false); } }
-            if (buttonId === 'unblock-day-btn') { if (confirm(`Sei sicuro di sbloccare l'intera giornata ${dateStr}? Verrà creata una regola di sblocco solo per oggi.`)) { await internalBlockDay(dateStr, state.currentLocation, true); await renderTimeSlots(dateStr, false); } }
-        });
-        
-        document.getElementById('schedule-screen').addEventListener('click', async e => {
-            if (e.target.id === 'prev-week-btn') { state.scheduleCurrentDate.setDate(state.scheduleCurrentDate.getDate() - 7); await renderSchedule(); }
-            if (e.target.id === 'next-week-btn') { state.scheduleCurrentDate.setDate(state.scheduleCurrentDate.getDate() + 7); await renderSchedule(); }
-        });
+        document.getElementById('back-to-main-from-student-list-btn').addEventListener('click', () => navigateTo('main-screen'));
+        document.getElementById('back-to-main-from-schedule-btn').addEventListener('click', () => navigateTo('main-screen'));
+        document.getElementById('back-to-main-from-admin-tools-btn').addEventListener('click', () => navigateTo('main-screen'));
+        document.getElementById('back-to-main-from-schedule-settings-btn').addEventListener('click', () => navigateTo('main-screen'));
+        document.getElementById('back-to-main-from-notifications-btn').addEventListener('click', () => navigateTo('main-screen'));
 
-        document.getElementById('admin-tools-screen').addEventListener('click', async e => {
-            const button = e.target.closest('button');
-            if (!button || button.id.startsWith('back-to-main')) return;
-            const location = document.getElementById('admin-tools-location').value;
-            if (!location) return alert("Seleziona una sede prima di procedere.");
-            let startDate, endDate;
-            if(button.id === 'reset-day-btn') {
-                const day = document.getElementById('reset-day-date').value;
-                if(!day) return alert("Seleziona un giorno.");
-                startDate = endDate = day;
-            } else if (button.id === 'reset-period-btn') {
-                startDate = document.getElementById('reset-period-start').value;
-                endDate = document.getElementById('reset-period-end').value;
-                if(!startDate || !endDate) return alert("Seleziona una data di inizio e una di fine.");
-            } else { return; }
-            const { count: bookingCount } = await supabase.from('bookings').select('*', { count: 'exact', head: true }).eq('location', location).gte('date', startDate).lte('date', endDate);
-            if (!confirm(`SEI SICURO?\n\nStai per cancellare ${bookingCount} prenotazioni per la sede di ${location} dal ${startDate} al ${endDate}.\n\nL'azione è irreversibile.`)) return;
-            showLoading(true);
-            const { error } = await supabase.from('bookings').delete().eq('location', location).gte('date', startDate).lte('date', endDate);
-            showLoading(false);
-            if (error) alert("Errore durante la cancellazione.");
-            else alert(`${bookingCount} prenotazioni cancellate con successo.`);
-        });
-        
-        document.getElementById('slots-content').addEventListener('click', async (e) => {
-            const target = e.target;
-            if (target.classList.contains('btn-book')) {
-                const startTime = target.dataset.time, duration = parseInt(target.dataset.duration), dateStr = formatDate(state.selectedDate);
-                if (confirm(`Confermi la prenotazione per ${state.selectedDate.toLocaleDateString('it-IT')} alle ${startTime} per ${duration} minuti?`)) {
-                    const endDateTime = new Date(new Date(`${dateStr}T${startTime}`).getTime() + duration * 60000);
+        document.getElementById('prev-week-btn').addEventListener('click', () => { state.scheduleCurrentDate.setDate(state.scheduleCurrentDate.getDate() - 7); renderWeeklySchedule(); });
+        document.getElementById('next-week-btn').addEventListener('click', () => { state.scheduleCurrentDate.setDate(state.scheduleCurrentDate.getDate() + 7); renderWeeklySchedule(); });
+
+        document.getElementById('student-list').addEventListener('click', async (e) => {
+            const item = e.target.closest('.student-list-item');
+            if (!item) return;
+            const code = item.dataset.code;
+
+            if (e.target.classList.contains('btn-toggle-details')) {
+                const details = item.querySelector('.student-details');
+                const isVisible = details.style.display === 'block';
+                details.style.display = isVisible ? 'none' : 'block';
+                e.target.textContent = isVisible ? 'Dettagli' : 'Nascondi';
+            }
+            if (e.target.classList.contains('btn-delete-student')) {
+                if (confirm(`Sei sicuro di voler eliminare definitivamente l'allievo ${code}?`)) {
                     showLoading(true);
-                    const { error } = await supabase.from('bookings').insert({ user_code: state.currentUser.code, location: state.currentLocation, date: dateStr, start_time: startTime, end_time: endDateTime.toTimeString().substring(0,8) });
+                    await supabase.from('users').delete().eq('code', code);
                     showLoading(false);
-                    if (error) { alert("Errore durante la prenotazione."); } else { alert("Prenotazione confermata!"); await renderTimeSlots(dateStr, false); await renderStudentBookingSummary(); }
+                    renderStudentList();
                 }
-            } 
-            else if (state.currentUser.role === 'admin' && target.classList.contains('time-slot')) {
-                const time = target.dataset.time;
-                const isBlocked = target.classList.contains('blocked');
-                const isBooked = target.classList.contains('booked');
-                const isFree = target.classList.contains('free');
-
-                if (isBooked) {
-                    const bookingData = JSON.parse(target.dataset.booking);
-                    if(confirm(`Questo slot è occupato da ${bookingData.users.name}.\n\nVuoi cancellare la sua lezione e bloccare l'orario?`)){
-                        showLoading(true);
-                        await supabase.from('bookings').delete().eq('id', bookingData.id);
-                        await supabase.from('notifications').insert({ student_code: bookingData.users.code, student_name: bookingData.users.name, message: `La tua lezione del ${formatDate(state.selectedDate)} alle ${time} è stata annullata.`, booking_id: null, status: 'replied', reply_message: `La tua lezione del ${formatDate(state.selectedDate)} alle ${time} è stata annullata.` });
-                        showLoading(false);
-                        openBlockModal(time, false);
+            }
+            if (e.target.classList.contains('btn-edit-student')) {
+                showLoading(true);
+                const { data: user } = await supabase.from('users').select('*').eq('code', code).single();
+                showLoading(false);
+                if (user) {
+                    document.getElementById('user-modal-title').textContent = "Modifica Allievo";
+                    document.getElementById('user-modal-name').value = user.name;
+                    document.getElementById('user-modal-code').value = user.code;
+                    document.getElementById('user-modal-code').disabled = true;
+                    
+                    let extraFields = document.getElementById('user-modal-extra-fields');
+                    if(!extraFields) {
+                        extraFields = document.createElement('div');
+                        extraFields.id = 'user-modal-extra-fields';
+                        document.getElementById('user-modal-code').parentNode.insertAdjacentElement('afterend', extraFields);
                     }
-                } else if (isFree) {
-                    openAdminBookModal(time);
-                }
-                 else { 
-                     openBlockModal(time, isBlocked);
+                    extraFields.innerHTML = `
+                        <div class="form-group" style="margin-top:1rem; display:flex; align-items:center; flex-direction:row;">
+                            <input type="checkbox" id="user-modal-regular" style="width:auto; margin-right:10px;" ${user.is_regular ? 'checked' : ''}>
+                            <label for="user-modal-regular" style="margin:0;">Registrazione Attiva</label>
+                        </div>
+                        <div class="form-group">
+                            <label for="user-modal-credit">Stato Credito</label>
+                            <input type="text" id="user-modal-credit" value="${user.credit_status || ''}" placeholder="Es: 4 lezioni rimanenti">
+                        </div>`;
+
+                    document.getElementById('user-modal-save').dataset.mode = 'edit';
+                    document.getElementById('user-modal-overlay').style.display = 'flex';
                 }
             }
         });
 
-        document.getElementById('student-bookings-summary').addEventListener('click', async (e) => {
-            const button = e.target.closest('button');
-            if (button && button.classList.contains('btn-request-change')) {
-                if (state.currentUser.changes_used >= state.currentUser.changes_allowed) {
-                    alert('Hai esaurito i cambi a tua disposizione.');
-                    return;
-                }
+        document.getElementById('create-student-btn').addEventListener('click', () => {
+            document.getElementById('user-modal-title').textContent = "Crea Nuovo Allievo";
+            document.getElementById('user-modal-name').value = '';
+            document.getElementById('user-modal-code').value = '';
+            document.getElementById('user-modal-code').disabled = false;
+            
+            let extraFields = document.getElementById('user-modal-extra-fields');
+            if(!extraFields) {
+                extraFields = document.createElement('div');
+                extraFields.id = 'user-modal-extra-fields';
+                document.getElementById('user-modal-code').parentNode.insertAdjacentElement('afterend', extraFields);
+            }
+            extraFields.innerHTML = `
+                <div class="form-group" style="margin-top:1rem; display:flex; align-items:center; flex-direction:row;">
+                    <input type="checkbox" id="user-modal-regular" style="width:auto; margin-right:10px;">
+                    <label for="user-modal-regular" style="margin:0;">Registrazione Attiva</label>
+                </div>
+                <div class="form-group">
+                    <label for="user-modal-credit">Stato Credito</label>
+                    <input type="text" id="user-modal-credit" placeholder="Es: 8 lezioni">
+                </div>`;
 
-                const bookingId = button.dataset.bookingId;
-                const message = prompt("Scrivi un messaggio per l'amministratore (es. 'Vorrei spostare ad un altro giorno'):");
-                if (message && message.trim()) {
+            document.getElementById('user-modal-save').dataset.mode = 'create';
+            document.getElementById('user-modal-overlay').style.display = 'flex';
+        });
+
+        document.getElementById('user-modal-save').addEventListener('click', async () => {
+            const name = document.getElementById('user-modal-name').value.trim();
+            const code = document.getElementById('user-modal-code').value.toUpperCase().trim();
+            const isRegular = document.getElementById('user-modal-regular')?.checked || false;
+            const creditStatus = document.getElementById('user-modal-credit')?.value.trim() || '';
+            const mode = document.getElementById('user-modal-save').dataset.mode;
+
+            if (!name || !code) return alert("Inserisci tutti i campi obbligatori");
+
+            showLoading(true);
+            if (mode === 'create') {
+                await supabase.from('users').insert({ code, name, role: 'student', is_regular: isRegular, credit_status: creditStatus });
+            } else {
+                await supabase.from('users').update({ name, is_regular: isRegular, credit_status: creditStatus }).eq('code', code);
+            }
+            showLoading(false);
+            document.getElementById('user-modal-overlay').style.display = 'none';
+            renderStudentList();
+        });
+
+        document.getElementById('booking-admin-actions').addEventListener('click', async (e) => {
+            if (!state.selectedDate) return;
+            const dateStr = formatDate(state.selectedDate);
+            const dayOfWeek = state.selectedDate.getDay();
+
+            if (e.target.id === 'block-day-btn') {
+                if (confirm("Sei sicuro di voler bloccare l'intero giorno per le nuove prenotazioni allievi?")) {
                     showLoading(true);
-                    const { error } = await supabase.from('notifications').insert({ student_code: state.currentUser.code, student_name: state.currentUser.name, message: message.trim(), booking_id: bookingId, status: 'pending' });
-                    if (error) {
-                        showLoading(false);
-                        alert("Errore nell'invio della richiesta.");
-                    } else {
-                        const newUsedCount = (state.currentUser.changes_used || 0) + 1;
-                        await supabase.from('users').update({ changes_used: newUsedCount }).eq('code', state.currentUser.code);
-                        state.currentUser.changes_used = newUsedCount; 
-                        showLoading(false);
-                        alert("Richiesta inviata.");
-                        await renderStudentBookingSummary();
-                    }
+                    await supabase.from('availability_rules').insert({ location: state.currentLocation, day_of_week: dayOfWeek, start_time: '00:00:00', end_time: '23:59:59', rule_type: 'BLOCK', start_date: dateStr, end_date: dateStr });
+                    showLoading(false);
+                    renderTimeSlots(dateStr);
                 }
             }
+            if (e.target.id === 'unblock-day-btn') {
+                if (confirm("Sei sicuro di voler rimuovere i blocchi manuali da questo intero giorno?")) {
+                    showLoading(true);
+                    await supabase.from('availability_rules').delete().eq('location', state.currentLocation).eq('start_date', dateStr).eq('end_date', dateStr);
+                    showLoading(false);
+                    renderTimeSlots(dateStr);
+                }
+            }
+        });
+
+        document.getElementById('admin-tools-screen').addEventListener('click', async (e) => {
+            const location = document.getElementById('admin-tools-location').value;
+            if(!location) return;
+
+            if (e.target.id === 'reset-day-btn') {
+                const date = document.getElementById('reset-day-date').value;
+                if(!date) return alert("Seleziona una data");
+                if (confirm(`Sei sicuro di voler SVUOTARE COMPLETAMENTE tutte le prenotazioni del giorno ${date} per la sede ${location}? L'azione è irreversibile.`)) {
+                    showLoading(true);
+                    await supabase.from('bookings').delete().eq('location', location).eq('date', date);
+                    showLoading(false); alert("Giorno svuotato.");
+                }
+            }
+            if (e.target.id === 'reset-period-btn') {
+                const start = document.getElementById('reset-period-start').value;
+                const end = document.getElementById('reset-period-end').value;
+                if(!start || !end) return alert("Seleziona inizio e fine periodo");
+                if (confirm(`Sei sicuro di voler SVUOTARE COMPLETAMENTE le prenotazioni dal ${start} al ${end} per la sede ${location}? L'azione è irreversibile.`)) {
+                    showLoading(true);
+                    await supabase.from('bookings').delete().eq('location', location).gte('date', start).lte('date', end);
+                    showLoading(false); alert("Periodo svuotato.");
+                }
+            }
+        });
+
+        document.getElementById('schedule-settings-content').addEventListener('click', (e) => {
+            if (e.target.classList.contains('btn-delete-location')) {
+                const card = e.target.closest('.location-config-block');
+                const loc = card.dataset.location;
+                if(confirm(`Sei sicuro di voler segnare la sede "${loc}" per l'eliminazione definitiva? Ricordati di cliccare Salva Modifiche.`)) {
+                    state.locationsToDelete.push(loc);
+                    card.style.opacity = '0.3';
+                    card.style.pointerEvents = 'none';
+                }
+            }
+        });
+
+        document.getElementById('add-location-btn').addEventListener('click', () => {
+            const name = document.getElementById('new-location-name').value.trim();
+            if(!name) return;
+            const container = document.getElementById('schedule-settings-content');
+            if(container.querySelector(`[data-location="${name}"]`)) return alert("Sede già esistente in lista");
+            
+            const div = document.createElement('div');
+            div.className = 'admin-tool-card location-config-block';
+            div.dataset.location = name;
+            div.dataset.isNew = 'true';
+            div.innerHTML = `
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem;">
+                    <h4 style="margin:0;">Sede: ${name} (Nuova)</h4>
+                    <button type="button" class="btn btn-danger btn-sm btn-delete-location" style="width:auto; margin:0;">Elimina Sede</button>
+                </div>
+                <div class="form-group">
+                    <label>Giorni di apertura:</label>
+                    <div style="display:grid; grid-template-columns: repeat(4, 1fr); gap: 5px; font-size:0.85rem;">
+                        ${['Dom','Lun','Mar','Mer','Gio','Ven','Sab'].map((d, idx) => {
+                            if(idx === 0) return '';
+                            return `<label style="font-weight:normal; display:flex; align-items:center; gap:3px;"><input type="checkbox" value="${idx}" checked> ${d}</label>`;
+                        }).join('')}
+                        <label style="font-weight:normal; display:flex; align-items:center; gap:3px;"><input type="checkbox" value="0"> Dom</label>
+                    </div>
+                </div>
+                <div class="time-inputs-container">
+                    <div class="form-group"><label>Orario Inizio:</label><input type="time" class="start-time-input" value="15:00"></div>
+                    <div class="form-group"><label>Orario Fine:</label><input type="time" class="end-time-input" value="21:00"></div>
+                </div>`;
+            container.appendChild(div);
+            document.getElementById('new-location-name').value = '';
+        });
+
+        document.getElementById('save-schedule-settings-btn').addEventListener('click', async () => {
+            showLoading(true);
+            if(state.locationsToDelete.length > 0) {
+                await supabase.from('schedule_config').delete().in('location', state.locationsToDelete);
+            }
+
+            const cards = document.querySelectorAll('.location-config-block');
+            for(let card of cards) {
+                const location = card.dataset.location;
+                if(state.locationsToDelete.includes(location)) continue;
+
+                const workDays = Array.from(card.querySelectorAll('input[type="checkbox"]:checked')).map(cb => parseInt(cb.value));
+                let startTime = card.querySelector('.start-time-input').value;
+                let endTime = card.querySelector('.end-time-input').value;
+
+                if(startTime.length === 5) startTime += ':00';
+                if(endTime.length === 5) endTime += ':00';
+
+                const { data } = await supabase.from('schedule_config').select('location').eq('location', location);
+                if(data && data.length > 0) {
+                    await supabase.from('schedule_config').update({ work_days: workDays, start_time: startTime, end_time: endTime }).eq('location', location);
+                } else {
+                    await supabase.from('schedule_config').insert({ location, work_days: workDays, start_time: startTime, end_time: endTime });
+                }
+            }
+            showLoading(false);
+            alert("Configurazioni salvate con successo.");
+            await loadInitialData();
+            navigateTo('main-screen');
         });
 
         document.getElementById('notifications-list').addEventListener('click', async (e) => {
             const button = e.target.closest('button');
             if (!button) return;
             const item = button.closest('.notification-item');
-            const notificationId = item.dataset.notificationId;
+            const notificationId = item.dataset.id;
             const bookingId = item.dataset.bookingId;
-            if (button.classList.contains('btn-mark-read')) {
-                showLoading(true);
-                await supabase.from('notifications').update({ status: 'read' }).eq('id', notificationId);
-            } else if (button.classList.contains('btn-reply')) {
-                const replyMessage = prompt("Scrivi la tua risposta per lo studente:");
-                if (replyMessage && replyMessage.trim()) {
-                    showLoading(true);
-                    await supabase.from('notifications').update({ status: 'replied', reply_message: replyMessage.trim() }).eq('id', notificationId);
-                } else return;
-            } else if (button.classList.contains('btn-cancel-booking')) {
-                if (confirm("Sei sicuro di voler cancellare questa lezione e notificare lo studente?")) {
+
+            if (button.classList.contains('btn-accept-notification')) {
+                if (confirm("Sei sicuro di voler ACCETTARE la richiesta e cancellare la lezione liberando l'orario?")) {
                     showLoading(true);
                     await supabase.from('bookings').delete().eq('id', bookingId);
-                    await supabase.from('notifications').update({ status: 'replied', reply_message: "Lezione cancellata come da richiesta." }).eq('id', notificationId);
+                    await supabase.from('notifications').update({ status: 'replied', reply_message: "Richiesta accettata. Lezione rimossa e credito salvaguardato." }).eq('id', notificationId);
                 } else return;
+            } else if (button.classList.contains('btn-danger')) {
+                const reply = prompt("Inserisci la motivazione del rifiuto:");
+                if (reply === null) return;
+                showLoading(true);
+                await supabase.from('notifications').update({ status: 'replied', reply_message: reply.trim() ? `Richiesta Rifiutata: ${reply}` : "Richiesta non accettata dall'amministratore." }).eq('id', notificationId);
             } else return;
-            showLoading(false); await renderNotifications(); await updateAdminUI();
+            showLoading(false); 
+            await renderNotifications(); 
+            await updateAdminUI();
         });
 
         blockModal.form.addEventListener('submit', handleSaveBlockRule);
@@ -1483,4 +1168,3 @@
     </script>
 </body>
 </html>
-
